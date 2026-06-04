@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-  <title>Cranbrook Rowing — S&C Hub</title>
+  <title>Cranbrook Rowing — S&amp;C Hub</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -12,74 +12,38 @@
       --accent: #1a56db; --accent2: #3b82f6;
       --warn: #f59e0b; --red: #e63946;
       --bg: #eef2f9; --card: #ffffff; --text: #07122b; --muted: #5a6a8a;
-      --border: #d0daf0;
-      --gold: #f59e0b; --silver: #94a3b8; --bronze: #b45309;
-      --success: #22c55e;
+      --border: #d0daf0; --gold: #f59e0b; --silver: #94a3b8; --bronze: #b45309; --success: #22c55e;
     }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    /* ══ UNIFIED TOP HEADER ══ */
-    .app-header {
-      background: var(--navy); color: white;
-      padding: 0; display: flex; flex-direction: column;
-      position: sticky; top: 0; z-index: 300;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.35);
-    }
-    .app-header-row1 {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px; height: 56px;
-    }
+    /* ══ UNIFIED HEADER ══ */
+    .app-header { background: var(--navy); color: white; position: sticky; top: 0; z-index: 300; box-shadow: 0 2px 16px rgba(0,0,0,0.35); }
+    .app-row1 { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 56px; }
     .app-left { display: flex; align-items: center; gap: 10px; }
-    .app-logo {
-      width: 36px; height: 36px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px;
-    }
-    .app-title { font-size: 15px; font-weight: 800; }
-    .app-sub   { font-size: 11px; color: #8fa0be; }
-    .app-nav   { display: flex; gap: 3px; }
-    .app-nav-btn {
-      padding: 7px 14px; border: none;
-      background: transparent; color: rgba(255,255,255,0.55);
-      border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
-      transition: all 0.18s; display: flex; align-items: center; gap: 5px;
-    }
-    .app-nav-btn:hover { background: rgba(255,255,255,0.10); color: white; }
+    .app-logo { width: 36px; height: 36px; background: linear-gradient(135deg,var(--accent),var(--accent2)); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .app-brand-title { font-size: 15px; font-weight: 800; }
+    .app-brand-sub { font-size: 11px; color: #8fa0be; }
+    .app-nav { display: flex; gap: 3px; }
+    .app-nav-btn { padding: 7px 14px; border: none; background: transparent; color: rgba(255,255,255,0.55); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.18s; display: flex; align-items: center; gap: 5px; }
+    .app-nav-btn:hover { background: rgba(255,255,255,0.1); color: white; }
     .app-nav-btn.active { background: var(--accent2); color: white; }
 
-    /* Dashboard sub-row: Coach/Athlete toggle + athlete picker */
-    .dash-sub-bar {
-      display: none;
-      align-items: center; justify-content: space-between;
-      padding: 8px 20px;
-      background: var(--navy2);
-      border-top: 1px solid rgba(255,255,255,0.07);
-      gap: 12px;
-    }
-    .dash-sub-bar.visible { display: flex; }
-    .dash-view-toggle { display: flex; background: rgba(255,255,255,0.1); border-radius: 8px; padding: 3px; gap: 2px; }
-    .dash-view-btn { padding: 5px 14px; border: none; background: transparent; color: #8fa0be; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
-    .dash-view-btn.active { background: var(--accent2); color: white; }
-
-    /* Athlete dropdown (visible only in athlete view) */
-    .dash-athlete-bar { display: none; align-items: center; gap: 8px; }
-    .dash-athlete-bar.visible { display: flex; }
-    .dash-athlete-bar label { color: #8fa0be; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
-    .dash-athlete-select { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: white; padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; }
-    .dash-athlete-select option { background: #0d2545; }
-
-    /* Testing sync bar */
-    .testing-sub-bar {
-      display: none;
-      align-items: center; justify-content: space-between;
-      padding: 8px 20px;
-      background: var(--navy2);
-      border-top: 1px solid rgba(255,255,255,0.07);
-    }
-    .testing-sub-bar.visible { display: flex; }
-    .sync-info-txt { color: #8fa0be; font-size: 12px; }
-    .sync-action-btn { padding: 6px 14px; background: var(--accent2); border: none; border-radius: 7px; color: white; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; }
-    .sync-action-btn:disabled { background: var(--muted); cursor: not-allowed; }
+    /* Sub-bars */
+    .app-subbar { display: none; align-items: center; justify-content: space-between; padding: 8px 20px; background: var(--navy2); border-top: 1px solid rgba(255,255,255,0.07); gap: 12px; }
+    .app-subbar.on { display: flex; }
+    .dash-toggle { display: flex; background: rgba(255,255,255,0.1); border-radius: 8px; padding: 3px; gap: 2px; }
+    .dash-toggle-btn { padding: 5px 14px; border: none; background: transparent; color: #8fa0be; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
+    .dash-toggle-btn.active { background: var(--accent2); color: white; }
+    .ath-bar { display: none; align-items: center; gap: 8px; }
+    .ath-bar.on { display: flex; }
+    .ath-bar label { color: #8fa0be; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+    #athleteSelect { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: white; padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; }
+    #athleteSelect option { background: #0d2545; }
+    .sync-bar2 { display: flex; align-items: center; justify-content: space-between; }
+    .sync-info2 { color: #8fa0be; font-size: 12px; }
+    .sync-btn2 { padding: 6px 14px; background: var(--accent2); border: none; border-radius: 7px; color: white; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: opacity 0.2s; }
+    .sync-btn2:hover { opacity: 0.85; }
+    .sync-btn2:disabled { background: var(--muted); cursor: not-allowed; }
 
     /* ══ PAGES ══ */
     .page { display: none; }
@@ -87,7 +51,7 @@
     #page-logger { padding-bottom: 80px; }
 
     /* ══ DASHBOARD CSS ══ */
-
+    
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -216,7 +180,7 @@
   
 
     /* ══ LOGGER CSS ══ */
-
+    
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     
@@ -408,7 +372,7 @@
   
 
     /* ══ TESTING CSS ══ */
-
+    
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -506,56 +470,46 @@
 
     @media (max-width: 580px) {
       .app-nav-btn .nav-lbl { display: none; }
-      .app-header-row1 { padding: 0 12px; }
-      .dash-sub-bar, .testing-sub-bar { padding: 8px 12px; }
+      .app-row1 { padding: 0 12px; }
+      .app-subbar { padding: 8px 12px; }
     }
   </style>
 </head>
 <body>
 
-<!-- ══ UNIFIED HEADER ══ -->
+<!-- ══ HEADER ══ -->
 <div class="app-header">
-  <div class="app-header-row1">
+  <div class="app-row1">
     <div class="app-left">
       <div class="app-logo">🚣</div>
       <div>
-        <div class="app-title">Cranbrook Rowing</div>
-        <div class="app-sub">S&amp;C Hub</div>
+        <div class="app-brand-title">Cranbrook Rowing</div>
+        <div class="app-brand-sub">S&amp;C Hub</div>
       </div>
     </div>
     <nav class="app-nav">
-      <button class="app-nav-btn active" onclick="showPage('dashboard')" id="nav-dashboard">
-        <span>📊</span><span class="nav-lbl">Dashboard</span>
-      </button>
-      <button class="app-nav-btn" onclick="showPage('logger')" id="nav-logger">
-        <span>📝</span><span class="nav-lbl">Logger</span>
-      </button>
-      <button class="app-nav-btn" onclick="showPage('testing')" id="nav-testing">
-        <span>🧪</span><span class="nav-lbl">Testing</span>
-      </button>
+      <button class="app-nav-btn active" onclick="showPage('dashboard')" id="nav-dashboard"><span>📊</span><span class="nav-lbl">Dashboard</span></button>
+      <button class="app-nav-btn" onclick="showPage('logger')" id="nav-logger"><span>📝</span><span class="nav-lbl">Logger</span></button>
+      <button class="app-nav-btn" onclick="showPage('testing')" id="nav-testing"><span>🧪</span><span class="nav-lbl">Testing</span></button>
     </nav>
   </div>
-
-  <!-- Dashboard sub-bar: Coach/Athlete toggle -->
-  <div class="dash-sub-bar visible" id="dashSubBar">
-    <div class="dash-view-toggle">
-      <button class="dash-view-btn active" id="dashBtnCoach" onclick="switchView('coach')">Coach</button>
-      <button class="dash-view-btn" id="dashBtnAthlete" onclick="switchView('athlete')">Athlete</button>
+  <!-- Dashboard sub-bar -->
+  <div class="app-subbar on" id="dashSubBar">
+    <div class="dash-toggle">
+      <button class="dash-toggle-btn active" id="dashBtnCoach" onclick="switchView('coach')">🏫 Coach</button>
+      <button class="dash-toggle-btn" id="dashBtnAthlete" onclick="switchView('athlete')">🚣 Athlete</button>
     </div>
-    <div class="dash-athlete-bar" id="dashAthleteBar">
+    <div class="ath-bar" id="dashAthleteBar">
       <label>Athlete</label>
-      <select class="dash-athlete-select" id="athleteSelect" onchange="loadAthleteView()">
-        <option>Loading…</option>
-      </select>
+      <select id="athleteSelect" onchange="loadAthleteView()"><option>Loading…</option></select>
     </div>
   </div>
-
-  <!-- Testing sub-bar: sync -->
-  <div class="testing-sub-bar" id="testingSubBar">
-    <span class="sync-info-txt" id="syncInfo">Loading data from Google Sheets…</span>
-    <button class="sync-action-btn" id="syncBtn" onclick="runSync()">
-      <span>↻</span> Sync from Sheets
-    </button>
+  <!-- Testing sub-bar -->
+  <div class="app-subbar" id="testingSubBar">
+    <div class="sync-bar2">
+      <span class="sync-info2" id="syncInfo">Loading data from Google Sheets…</span>
+      <button class="sync-btn2" id="syncBtn" onclick="runSync()"><span>↻</span> Sync from Sheets</button>
+    </div>
   </div>
 </div>
 
@@ -598,475 +552,18 @@
 </div>
 
 <div class="toast hidden" id="lg_toast"></div>
-
-<script>
-const API = 'https://superagent-84188511.base44.app/functions/submitSession';
-
-const SESSIONS = {
-  'Lower A': [
-    {name:'BB HIGH PULL', sets:3},
-    {name:'HURDLE JUMP AND STICK', sets:3},
-    {name:'BB BACK SQUAT (HEELS ELEVATED)', sets:5},
-    {name:'ANKLE DORSIFLEXION', sets:3},
-    {name:'FRONT FOOT ELEVATED SPLIT SQUAT', sets:3},
-    {name:'GHD ANTI-LATERAL FLEXION HOLD', sets:3},
-    {name:'ECCENTRIC HAMSTRING SLIDERS', sets:3}
-  ],
-  'Lower B': [
-    {name:'BB RDL', sets:4},
-    {name:'SB ROLL OUT + PLANK HOLD', sets:3},
-    {name:'BELT SQUAT', sets:4},
-    {name:'HANGING STRAIGHT LEG RAISE', sets:3},
-    {name:'LEG EXTENSION (DOUBLE + SINGLE)', sets:4},
-    {name:'LANDMINE ROTATION', sets:3},
-    {name:'SINGLE LEG HIP THRUST', sets:3}
-  ],
-  'Upper A': [
-    {name:'CHIN UPS', sets:4},
-    {name:'BENCH PRESS', sets:4},
-    {name:'SINGLE ARM DB ROW (KNEELING)', sets:4},
-    {name:'INCLINE DB BENCH PRESS', sets:4},
-    {name:'REVERSE DB FLY (CHEST SUPPORTED)', sets:3},
-    {name:'WEIGHTED SIT UPS', sets:3},
-    {name:'SWISS BALL DEADBUG', sets:3}
-  ],
-  'Upper B': [
-    {name:'BENCH PULL', sets:4},
-    {name:'1/2 KNEELING WALL THORACIC ROTATION', sets:3},
-    {name:'BB SHOULDER PRESS', sets:4},
-    {name:'1/2 KNEELING BANDED CUBAN PRESS', sets:3},
-    {name:'DB LATERAL RAISE', sets:3},
-    {name:'BICEPS OF YOUR CHOICE', sets:3},
-    {name:'PALLOF PRESS - ISO HOLD', sets:3}
-  ]
-};
-
-const ALL_EXERCISES = [
-  'BB HIGH PULL','HURDLE JUMP AND STICK','BB BACK SQUAT (HEELS ELEVATED)',
-  'ANKLE DORSIFLEXION','FRONT FOOT ELEVATED SPLIT SQUAT','GHD ANTI-LATERAL FLEXION HOLD',
-  'ECCENTRIC HAMSTRING SLIDERS','BB RDL','SB ROLL OUT + PLANK HOLD','BELT SQUAT',
-  'HANGING STRAIGHT LEG RAISE','LEG EXTENSION (DOUBLE + SINGLE)','LANDMINE ROTATION',
-  'SINGLE LEG HIP THRUST','CHIN UPS','BENCH PRESS','SINGLE ARM DB ROW (KNEELING)',
-  'INCLINE DB BENCH PRESS','REVERSE DB FLY (CHEST SUPPORTED)','WEIGHTED SIT UPS',
-  'SWISS BALL DEADBUG','BENCH PULL','1/2 KNEELING WALL THORACIC ROTATION',
-  'BB SHOULDER PRESS','1/2 KNEELING BANDED CUBAN PRESS','DB LATERAL RAISE',
-  'BICEPS OF YOUR CHOICE','PALLOF PRESS - ISO HOLD'
-];
-
-const TIME_EXERCISES = new Set([
-  'GHD ANTI-LATERAL FLEXION HOLD',
-  'SB ROLL OUT + PLANK HOLD',
-  'PALLOF PRESS - ISO HOLD'
-]);
-
-const BAND_EXERCISES = new Set(['CHIN UPS']);
-const BAND_OPTIONS = ['BW','Yellow Band','Red Band','Blue Band','Green Band','Black Band','Added Weight'];
-
-function savePrefs() {
-  localStorage.setItem('sc_athlete', document.getElementById('athleteSelect').value);
-  localStorage.setItem('sc_session', document.getElementById('sessionSelect').value);
-}
-
-function loadPrefs() {
-  const a = localStorage.getItem('sc_athlete');
-  const s = localStorage.getItem('sc_session');
-  if (a) document.getElementById('athleteSelect').value = a;
-  if (s) document.getElementById('sessionSelect').value = s;
-}
-
-function getStorageKey(athlete, session, exercise, type, setNum) {
-  return `${athlete}|${session}|${exercise}|${type}|${setNum}`;
-}
-
-function saveInput(inputEl, exercise, type, setNum) {
-  const athlete = document.getElementById('athleteSelect').value;
-  const session = document.getElementById('sessionSelect').value;
-  const key = getStorageKey(athlete, session, exercise, type, setNum);
-  if (inputEl.value !== '') localStorage.setItem(key, inputEl.value);
-}
-
-function loadInput(inputEl, exercise, type, setNum) {
-  const athlete = document.getElementById('athleteSelect').value;
-  const session = document.getElementById('sessionSelect').value;
-  const key = getStorageKey(athlete, session, exercise, type, setNum);
-  const val = localStorage.getItem(key);
-  if (val !== null) inputEl.value = val;
-}
-
-function buildSession() {
-  const session = document.getElementById('sessionSelect').value;
-  const exercises = SESSIONS[session];
-  const container = document.getElementById('exerciseContainer');
-  container.innerHTML = '';
-
-  exercises.forEach((ex, idx) => {
-    const card = document.createElement('div');
-    card.className = 'exercise-card';
-    card.dataset.idx = idx;
-
-    // Exercise dropdown
-    const exSelect = document.createElement('select');
-    exSelect.className = 'exercise-select';
-    exSelect.id = `exercise_${idx}`;
-    ALL_EXERCISES.forEach(e => {
-      const opt = document.createElement('option');
-      opt.value = e; opt.textContent = e;
-      if (e === ex.name) opt.selected = true;
-      exSelect.appendChild(opt);
-    });
-    exSelect.addEventListener('change', () => rebuildSets(card, idx));
-    card.appendChild(exSelect);
-
-    // Set rows
-    buildSets(card, idx, ex.name, ex.sets);
-    container.appendChild(card);
-  });
-}
-
-function rebuildSets(card, idx) {
-  const exName = document.getElementById(`exercise_${idx}`).value;
-  const sets = getSetsForExercise(exName);
-  // Remove old set rows
-  const old = card.querySelector('.sets-wrap');
-  if (old) old.remove();
-  buildSets(card, idx, exName, sets);
-}
-
-function getSetsForExercise(name) {
-  const map = {
-    'BB HIGH PULL':3,'HURDLE JUMP AND STICK':3,'BB BACK SQUAT (HEELS ELEVATED)':5,
-    'ANKLE DORSIFLEXION':3,'FRONT FOOT ELEVATED SPLIT SQUAT':3,
-    'GHD ANTI-LATERAL FLEXION HOLD':3,'ECCENTRIC HAMSTRING SLIDERS':3,
-    'BB RDL':4,'SB ROLL OUT + PLANK HOLD':3,'BELT SQUAT':4,
-    'HANGING STRAIGHT LEG RAISE':3,'LEG EXTENSION (DOUBLE + SINGLE)':4,
-    'LANDMINE ROTATION':3,'SINGLE LEG HIP THRUST':3,
-    'CHIN UPS':4,'BENCH PRESS':4,'SINGLE ARM DB ROW (KNEELING)':4,
-    'INCLINE DB BENCH PRESS':4,'REVERSE DB FLY (CHEST SUPPORTED)':3,
-    'WEIGHTED SIT UPS':3,'SWISS BALL DEADBUG':3,
-    'BENCH PULL':4,'1/2 KNEELING WALL THORACIC ROTATION':3,
-    'BB SHOULDER PRESS':4,'1/2 KNEELING BANDED CUBAN PRESS':3,
-    'DB LATERAL RAISE':3,'BICEPS OF YOUR CHOICE':3,'PALLOF PRESS - ISO HOLD':3
-  };
-  return map[name] || 3;
-}
-
-function buildSets(card, idx, exName, setsN) {
-  const wrap = document.createElement('div');
-  wrap.className = 'sets-wrap';
-
-  // Header
-  const header = document.createElement('div');
-  header.className = 'set-header';
-  const repsLabel = TIME_EXERCISES.has(exName) ? 'Time (s)' : 'Reps';
-  const loadLabel = BAND_EXERCISES.has(exName) ? 'Band' : 'Load';
-  header.innerHTML = `<span>Set</span><span>${repsLabel}</span><span>${loadLabel}</span><span>RPE</span>`;
-  wrap.appendChild(header);
-
-  for (let s = 1; s <= setsN; s++) {
-    const row = document.createElement('div');
-    row.className = 'set-row';
-
-    const label = document.createElement('div');
-    label.className = 'set-label';
-    label.textContent = `${s}`;
-    row.appendChild(label);
-
-    // Reps / Time
-    const repsInput = document.createElement('input');
-    repsInput.type = 'number';
-    repsInput.inputMode = 'numeric';
-    repsInput.placeholder = TIME_EXERCISES.has(exName) ? 'sec' : 'reps';
-    repsInput.min = 0;
-    loadInput(repsInput, exName, 'reps', s);
-    repsInput.addEventListener('change', () => saveInput(repsInput, exName, 'reps', s));
-    row.appendChild(repsInput);
-
-    // Load / Band
-    if (BAND_EXERCISES.has(exName)) {
-      const bandSel = document.createElement('select');
-      BAND_OPTIONS.forEach(b => {
-        const o = document.createElement('option'); o.value = b; o.textContent = b;
-        bandSel.appendChild(o);
-      });
-      loadInput(bandSel, exName, 'load', s);
-      bandSel.addEventListener('change', () => saveInput(bandSel, exName, 'load', s));
-      row.appendChild(bandSel);
-    } else {
-      const loadInput_ = document.createElement('input');
-      loadInput_.type = 'number';
-      loadInput_.inputMode = 'decimal';
-      loadInput_.placeholder = 'kg';
-      loadInput_.min = 0;
-      loadInput_.step = '0.5';
-      loadInput(loadInput_, exName, 'load', s);
-      loadInput_.addEventListener('change', () => saveInput(loadInput_, exName, 'load', s));
-      row.appendChild(loadInput_);
-    }
-
-    // RPE
-    const rpeInput = document.createElement('input');
-    rpeInput.type = 'number';
-    rpeInput.inputMode = 'numeric';
-    rpeInput.placeholder = '1-10';
-    rpeInput.min = 1; rpeInput.max = 10;
-    rpeInput.dataset.type = 'rpe';
-    loadInput(rpeInput, exName, 'rpe', s);
-    rpeInput.addEventListener('change', () => saveInput(rpeInput, exName, 'rpe', s));
-    row.appendChild(rpeInput);
-
-    wrap.appendChild(row);
-  }
-
-  card.appendChild(wrap);
-}
-
-function showToast(msg, type = 'success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast ${type}`;
-  setTimeout(() => t.className = 'toast hidden', 3500);
-}
-
-async function submitSession() {
-  const athlete = document.getElementById('athleteSelect').value;
-  const session = document.getElementById('sessionSelect').value;
-  const timestamp = new Date().toISOString();
-  const records = [];
-
-  const cards = document.querySelectorAll('.exercise-card');
-  cards.forEach((card, idx) => {
-    const exName = document.getElementById(`exercise_${idx}`).value;
-    const rows = card.querySelectorAll('.set-row');
-    rows.forEach((row, s) => {
-      const inputs = row.querySelectorAll('input, select');
-      if (inputs.length < 3) return;
-      const reps = inputs[0].value;
-      const load = inputs[1].value;
-      const rpe  = inputs[2].value;
-      if (!reps || !load || !rpe) return; // skip incomplete sets
-      records.push({
-        timestamp,
-        athlete,
-        session_type: session,
-        exercise: exName,
-        set_number: s + 1,
-        reps: parseFloat(reps),
-        load: String(load),
-        rpe: parseFloat(rpe)
-      });
-    });
-  });
-
-  if (records.length === 0) {
-    showToast('No complete sets to submit. Fill in Reps, Load and RPE.', 'error');
-    return;
-  }
-
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Submitting…';
-
-  try {
-    const res = await fetch(API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(records)
-    });
-    const data = await res.json();
-    if (res.ok && data.ok) {
-      showToast(`✅ Session submitted — ${data.created} sets logged!`, 'success');
-      // Clear localStorage for this athlete/session
-      const keys = Object.keys(localStorage).filter(k => k.startsWith(`${athlete}|${session}|`));
-      keys.forEach(k => localStorage.removeItem(k));
-      // Reset inputs
-      document.querySelectorAll('.exercise-card input').forEach(i => i.value = '');
-    } else {
-      showToast(`❌ Submission failed — ${data.error || 'Unknown error'}`, 'error');
-    }
-  } catch(e) {
-    showToast(`❌ Network error — ${e.message}`, 'error');
-  }
-
-  btn.disabled = false;
-  btn.textContent = 'Submit Session';
-}
-
-// Init
-loadPrefs();
-buildSession();
-</script>
 </div>
 
 <!-- ══ TESTING PAGE ══ -->
 <div class="page" id="page-testing">
-<div class="tst-main">
-  <div class="loading" id="loadingState"><div class="spinner"></div> Fetching testing data…</div>
-  <div id="content" style="display:none"></div>
+  <div class="main">
+    <div class="loading" id="loadingState"><div class="spinner"></div> Fetching testing data…</div>
+    <div id="content" style="display:none"></div>
+  </div>
 </div>
 
 <script>
-const TESTING_API  = 'https://superagent-84188511.base44.app/functions/getTestingData';
-const SYNC_API     = 'https://superagent-84188511.base44.app/functions/syncTestingData';
-
-let allData = null;
-let activeYear = null;
-
-const BAR_COLORS = ['#1a56db','#3b82f6','#60a5fa','#93c5fd','#a78bfa','#fb923c'];
-
-async function loadData() {
-  try {
-    const res = await fetch(TESTING_API, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-    allData = await res.json();
-    render();
-  } catch(e) {
-    document.getElementById('loadingState').innerHTML = `<div style="color:var(--red)">Error loading data: ${e.message}</div>`;
-  }
-}
-
-async function runSync() {
-  const btn = document.getElementById('syncBtn');
-  const info = document.getElementById('syncInfo');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spin-sm"></span> Syncing…';
-  try {
-    const res = await fetch(SYNC_API, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-    const d = await res.json();
-    info.textContent = `Last sync: just now — ${d.synced} new records, ${d.skipped} already up to date`;
-    await loadData();
-  } catch(e) {
-    info.textContent = `Sync failed: ${e.message}`;
-  }
-  btn.disabled = false;
-  btn.innerHTML = '<span>↻</span> Sync from Sheets';
-}
-
-function render() {
-  const loading = document.getElementById('loadingState');
-  const content = document.getElementById('content');
-  const info = document.getElementById('syncInfo');
-
-  loading.style.display = 'none';
-  content.style.display = 'block';
-
-  if (!allData?.yearGroups?.length) {
-    info.textContent = `${allData?.totalRecords || 0} records in database`;
-    content.innerHTML = `
-      <div class="empty">
-        <strong>🧪</strong>
-        No testing data yet.<br>
-        As athletes come in and complete the core testing battery,<br>
-        their results will appear here ranked by year level.<br><br>
-        <span style="font-size:13px;color:var(--muted)">Hit "Sync from Sheets" after recording results in the Google Form.</span>
-      </div>`;
-    return;
-  }
-
-  info.textContent = `${allData.totalRecords} records — ${allData.yearGroups.length} year group(s)`;
-
-  // Set active year if not set
-  if (!activeYear || !allData.yearGroups.find(g => g.yearLevel === activeYear)) {
-    activeYear = allData.yearGroups[0].yearLevel;
-  }
-
-  // Year tabs
-  const tabsHtml = allData.yearGroups.map(g => `
-    <button class="year-tab ${g.yearLevel === activeYear ? 'active' : ''}"
-      onclick="setYear('${g.yearLevel}')">
-      Year ${g.yearLevel}<span class="count">${g.athleteCount}</span>
-    </button>
-  `).join('');
-
-  const group = allData.yearGroups.find(g => g.yearLevel === activeYear);
-  content.innerHTML = `
-    <div class="year-tabs">${tabsHtml}</div>
-    ${renderYearGroup(group)}
-  `;
-}
-
-function setYear(yr) {
-  activeYear = yr;
-  render();
-}
-
-function renderYearGroup(group) {
-  if (!group) return '';
-
-  const { overallRanking, metricRankings } = group;
-
-  // Overall rankings table
-  const METRIC_KEYS = ['hollow_hold','prone_plank','side_plank_left','side_plank_right'];
-  const METRIC_LABELS = ['Hollow Hold','Prone Plank','Side L','Side R'];
-
-  const overallRows = overallRanking.map((a, i) => {
-    const rankClass = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
-    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-    const scoreCells = METRIC_KEYS.map(k => {
-      const v = a.scores[k];
-      if (v === undefined || v === null) return `<td class="score-cell"><span class="no-score">—</span></td>`;
-      const cls = v >= 60 ? 'score-good' : v >= 30 ? 'score-mid' : 'score-low';
-      return `<td class="score-cell ${cls}">${v}s</td>`;
-    }).join('');
-    return `<tr>
-      <td><span class="rank-num ${rankClass}">${medal || a.overallRank}</span></td>
-      <td><span class="athlete-name">${a.athlete}</span></td>
-      <td style="text-align:center"><span class="tests-badge">${a.testsCompleted}/4</span></td>
-      <td style="text-align:center;font-weight:700;color:var(--navy)">${a.avgRank}</td>
-      ${scoreCells}
-    </tr>`;
-  }).join('');
-
-  // Metric bar charts
-  const metricCards = metricRankings.map((m, mi) => {
-    if (m.rankings.length === 0) return '';
-    const maxScore = m.rankings[0]?.score || 1;
-    const bars = m.rankings.map((r, i) => {
-      const pct = Math.round((r.score / maxScore) * 100);
-      const rankClass = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
-      const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
-      const color = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':BAR_COLORS[mi%BAR_COLORS.length];
-      return `
-        <div class="bar-row">
-          <div class="bar-rank ${rankClass}">${medal}</div>
-          <div class="bar-name" title="${r.athlete}">${r.athlete}</div>
-          <div class="bar-wrap">
-            <div class="bar-fill" style="width:${pct}%;background:${color}">${r.score}s</div>
-          </div>
-        </div>`;
-    }).join('');
-    return `
-      <div class="card">
-        <div class="card-title">${m.label} <span style="font-weight:400;color:var(--muted)">(${m.rankings.length} athletes)</span></div>
-        ${bars}
-      </div>`;
-  }).filter(Boolean).join('');
-
-  return `
-    <div class="section-title">Overall Rankings — Year ${group.yearLevel}</div>
-    <div class="card">
-      <div class="card-title">Ranked by average position across all completed tests</div>
-      <table class="rank-table">
-        <thead><tr>
-          <th></th>
-          <th>Athlete</th>
-          <th class="center">Tests Done</th>
-          <th class="center">Avg Rank</th>
-          ${METRIC_LABELS.map(l => `<th class="center">${l}</th>`).join('')}
-        </tr></thead>
-        <tbody>${overallRows || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No athletes tested yet in this year group</td></tr>'}</tbody>
-      </table>
-    </div>
-
-    <div class="section-title">Rankings by Test</div>
-    <div class="metrics-grid">${metricCards || '<div style="color:var(--muted);padding:20px">No test scores yet</div>'}</div>
-  `;
-}
-
-loadData();
-</script>
-</div>
-
-<script>
-// ══ PAGE SWITCHER ════════════════════════════════════════════════════════════
+// ══ PAGE SWITCHER ══════════════════════════════════════════════════════════════
 let currentPage = 'dashboard';
 let testingLoaded = false;
 
@@ -1075,24 +572,20 @@ function showPage(page) {
   document.querySelectorAll('.app-nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   document.getElementById('nav-' + page).classList.add('active');
-
-  // Show/hide sub-bars
-  var dashBar = document.getElementById('dashSubBar');
-  var testBar = document.getElementById('testingSubBar');
-  dashBar.className = 'dash-sub-bar' + (page === 'dashboard' ? ' visible' : '');
-  testBar.className = 'testing-sub-bar' + (page === 'testing' ? ' visible' : '');
-
+  var dBar = document.getElementById('dashSubBar');
+  var tBar = document.getElementById('testingSubBar');
+  if (dBar) dBar.className = 'app-subbar' + (page === 'dashboard' ? ' on' : '');
+  if (tBar) tBar.className = 'app-subbar' + (page === 'testing' ? ' on' : '');
   currentPage = page;
   window.scrollTo(0, 0);
-
   if (page === 'testing' && !testingLoaded) {
     testingLoaded = true;
     testingLoadData();
   }
 }
 
-// ══ DASHBOARD ════════════════════════════════════════════════════════════════
-const API = 'https://superagent-84188511.base44.app/functions/getDashboardData';
+// ══ DASHBOARD ══════════════════════════════════════════════════════════════════
+const DASH_API = 'https://superagent-84188511.base44.app/functions/getDashboardData';
 let currentView = 'coach';
 let coachData = null;
 let charts = {};
@@ -1100,7 +593,7 @@ let charts = {};
 function destroyCharts() { Object.values(charts).forEach(c => c.destroy()); charts = {}; }
 
 async function fetchData(payload) {
-  const res = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const res = await fetch(DASH_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
   return res.json();
 }
 
@@ -1108,7 +601,7 @@ function switchView(view) {
   currentView = view;
   document.getElementById('dashBtnCoach').classList.toggle('active', view==='coach');
   document.getElementById('dashBtnAthlete').classList.toggle('active', view==='athlete');
-  var dashBar = document.getElementById('dashAthleteBar'); if(dashBar) dashBar.style.display = view==='athlete' ? 'flex' : 'none';
+  document.getElementById('dashAthleteBar').style.display = view==='athlete' ? 'flex' : 'none';
   if (view==='coach') loadCoachView();
   else loadAthleteView();
 }
@@ -1565,10 +1058,9 @@ async function init() {
   }
 }
 
-init();
 
-// ══ LOGGER ═══════════════════════════════════════════════════════════════════
-const API = 'https://superagent-84188511.base44.app/functions/submitSession';
+// ══ LOGGER ═════════════════════════════════════════════════════════════════════
+const LOG_API = 'https://superagent-84188511.base44.app/functions/submitSession';
 
 const SESSIONS = {
   'Lower A': [
@@ -1835,7 +1327,7 @@ async function submitSession() {
   btn.innerHTML = '<span class="spinner"></span>Submitting…';
 
   try {
-    const res = await fetch(API, {
+    const res = await fetch(LOG_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(records)
@@ -1863,19 +1355,19 @@ async function submitSession() {
 loadPrefs();
 buildSession();
 
-// ══ TESTING ══════════════════════════════════════════════════════════════════
+// ══ TESTING ════════════════════════════════════════════════════════════════════
 const TESTING_API  = 'https://superagent-84188511.base44.app/functions/getTestingData';
 const SYNC_API     = 'https://superagent-84188511.base44.app/functions/syncTestingData';
 
-let allData = null;
-let activeYear = null;
+let testingData = null;
+let testActiveYear = null;
 
 const BAR_COLORS = ['#1a56db','#3b82f6','#60a5fa','#93c5fd','#a78bfa','#fb923c'];
 
 async function testingLoadData() {
   try {
     const res = await fetch(TESTING_API, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-    allData = await res.json();
+    testingData = await res.json();
     render();
   } catch(e) {
     document.getElementById('loadingState').innerHTML = `<div style="color:var(--red)">Error loading data: ${e.message}</div>`;
@@ -1907,8 +1399,8 @@ function render() {
   loading.style.display = 'none';
   content.style.display = 'block';
 
-  if (!allData?.yearGroups?.length) {
-    info.textContent = `${allData?.totalRecords || 0} records in database`;
+  if (!testingData?.yearGroups?.length) {
+    info.textContent = `${testingData?.totalRecords || 0} records in database`;
     content.innerHTML = `
       <div class="empty">
         <strong>🧪</strong>
@@ -1920,22 +1412,22 @@ function render() {
     return;
   }
 
-  info.textContent = `${allData.totalRecords} records — ${allData.yearGroups.length} year group(s)`;
+  info.textContent = `${testingData.totalRecords} records — ${testingData.yearGroups.length} year group(s)`;
 
   // Set active year if not set
-  if (!activeYear || !allData.yearGroups.find(g => g.yearLevel === activeYear)) {
-    activeYear = allData.yearGroups[0].yearLevel;
+  if (!testActiveYear || !testingData.yearGroups.find(g => g.yearLevel === testActiveYear)) {
+    testActiveYear = testingData.yearGroups[0].yearLevel;
   }
 
   // Year tabs
-  const tabsHtml = allData.yearGroups.map(g => `
-    <button class="year-tab ${g.yearLevel === activeYear ? 'active' : ''}"
+  const tabsHtml = testingData.yearGroups.map(g => `
+    <button class="year-tab ${g.yearLevel === testActiveYear ? 'active' : ''}"
       onclick="setYear('${g.yearLevel}')">
       Year ${g.yearLevel}<span class="count">${g.athleteCount}</span>
     </button>
   `).join('');
 
-  const group = allData.yearGroups.find(g => g.yearLevel === activeYear);
+  const group = testingData.yearGroups.find(g => g.yearLevel === testActiveYear);
   content.innerHTML = `
     <div class="year-tabs">${tabsHtml}</div>
     ${renderYearGroup(group)}
@@ -1943,7 +1435,7 @@ function render() {
 }
 
 function setYear(yr) {
-  activeYear = yr;
+  testActiveYear = yr;
   render();
 }
 
@@ -2020,9 +1512,8 @@ function renderYearGroup(group) {
   `;
 }
 
-testingLoadData();
 
-// ══ BOOT ═════════════════════════════════════════════════════════════════════
+// ══ BOOT ═══════════════════════════════════════════════════════════════════════
 init();
 loadPrefs();
 buildSession();
