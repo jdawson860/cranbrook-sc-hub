@@ -7,10 +7,11 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --navy: #081830; --navy2: #0d2545;
-      --accent: #1e90ff; --accent2: #00c8a0; --warn: #ff6b35; --red: #e63946;
-      --bg: #f0f4f8; --card: #ffffff; --text: #1a2332; --muted: #6b7a99;
+      --navy:  #07122b; --navy2: #0c1f48;
+      --accent: #1a56db; --accent2: #3b82f6; --warn: #f59e0b; --red: #e63946;
+      --bg: #eef2f9; --card: #ffffff; --text: #07122b; --muted: #5a6a8a;
       --gold: #f59e0b; --silver: #94a3b8; --bronze: #b45309;
+      --border: #d0daf0;
     }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
@@ -27,7 +28,7 @@
     /* SYNC BAR */
     .sync-bar { background: var(--navy2); padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.07); }
     .sync-info { color: #8fa0be; font-size: 12px; }
-    .sync-btn { padding: 6px 16px; background: var(--accent); border: none; border-radius: 7px; color: white; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity 0.2s; }
+    .sync-btn { padding: 6px 16px; background: var(--accent2); border: none; border-radius: 7px; color: white; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity 0.2s; }
     .sync-btn:hover { opacity: 0.85; }
     .sync-btn:disabled { background: var(--muted); cursor: not-allowed; }
 
@@ -38,7 +39,7 @@
     .year-tabs { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
     .year-tab { padding: 9px 20px; border: 2px solid #e2e8f0; border-radius: 10px; background: white; color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
     .year-tab:hover { border-color: var(--accent); color: var(--accent); }
-    .year-tab.active { background: var(--navy); border-color: var(--navy); color: white; }
+    .year-tab.active { background: var(--navy2); border-color: var(--accent); color: white; }
     .year-tab .count { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 1px 7px; font-size: 11px; margin-left: 4px; }
     .year-tab:not(.active) .count { background: var(--bg); color: var(--muted); }
 
@@ -51,9 +52,9 @@
     .card-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 16px; }
 
     .rank-table { width: 100%; border-collapse: collapse; }
-    .rank-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--bg); }
+    .rank-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border, #d0daf0); }
     .rank-table th.center { text-align: center; }
-    .rank-table td { padding: 11px 12px; font-size: 13px; border-bottom: 1px solid var(--bg); vertical-align: middle; }
+    .rank-table td { padding: 11px 12px; font-size: 13px; border-bottom: 1px solid var(--border, #d0daf0); vertical-align: middle; }
     .rank-table tr:last-child td { border-bottom: none; }
     .rank-table tr:hover td { background: #f8fafc; }
 
@@ -116,7 +117,7 @@
     </div>
   </div>
   <div class="nav-links">
-    <a class="nav-link" href="./index.html">S&C Dashboard</a>
+    <a class="nav-link" href="./dashboard.html">S&C Dashboard</a>
     <a class="nav-link" href="./logger.html">Session Logger</a>
     <a class="nav-link active" href="#">Testing</a>
   </div>
@@ -141,7 +142,7 @@ const SYNC_API     = 'https://superagent-84188511.base44.app/functions/syncTesti
 let allData = null;
 let activeYear = null;
 
-const BAR_COLORS = ['#1e90ff','#00c8a0','#f59e0b','#e63946','#a78bfa','#fb923c'];
+const BAR_COLORS = ['#1a56db','#3b82f6','#60a5fa','#93c5fd','#a78bfa','#fb923c'];
 
 async function loadData() {
   try {
