@@ -1,105 +1,135 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-const SPREADSHEET_ID = '1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk';
-const SHEET_NAME = 'Session_Data_Responses';
+const SHEET_ID = "1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk";
+const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
+
+async function getSheetRows(token: string, sheetName: string, maxRows = 500): Promise<string[][]> {
+  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:J${maxRows}`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await resp.json();
+  return data.values || [];
+}
+
+function sheetsDateToISO(val: string): string {
+  // Handle Google Sheets serial number (e.g. 46177 = 2026-06-04)
+  const serial = parseFloat(val);
+  if (!isNaN(serial) && serial > 40000) {
+    const epoch = new Date(1899, 11, 30);
+    const date = new Date(epoch.getTime() + serial * 86400000);
+    return date.toISOString().split('T')[0];
+  }
+  // Handle M/D/YYYY or M/D/YYYY H:MM:SS
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+  } catch {}
+  return val;
+}
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const db = base44.asServiceRole.entities;
 
-    // Get Google Sheets access token via connector
-    const { accessToken } = await base44.asServiceRole.connectors.getConnection('googlesheets');
+    // Get Google Sheets token from env (set by automation) or request header
+    const body = await req.json().catch(() => ({}));
+    const token = body.sheets_token || Deno.env.get("GOOGLESHEETS_ACCESS_TOKEN") || "";
 
-    // Fetch all data from the sheet
-    const sheetsRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-
-    if (!sheetsRes.ok) {
-      const err = await sheetsRes.text();
-      return Response.json({ error: `Sheets API error: ${err}` }, { status: 500 });
+    if (!token) {
+      return Response.json({ error: "No Google Sheets token available" }, { status: 400 });
     }
 
-    const sheetsData = await sheetsRes.json();
-    const rows: string[][] = sheetsData.values || [];
+    const athletes = ['AF', 'RR', 'JC', 'MA', 'TL', 'CC', 'SK', 'AS', 'AD', 'OO'];
+    const results = { session_records: 0, testing_records: 0, errors: [] as string[] };
 
-    // Filter to non-empty data rows (skip header row 0)
-    const dataRows = rows.slice(1).filter(r => r && r.some(c => c?.trim()));
+    // ── 1. SYNC SESSION DATA from individual athlete tabs ────────────────────
+    const newSessionRecords: any[] = [];
 
-    if (dataRows.length === 0) {
-      return Response.json({ ok: true, synced: 0, skipped: 0, message: 'No data rows found in sheet' });
-    }
-
-    // Fetch existing records to deduplicate
-    // We'll use a composite key: timestamp+athlete+session+exercise+set+reps+load+rpe
-    const existing = await base44.asServiceRole.entities.SessionLog.list();
-    const existingKeys = new Set(
-      existing.map((r: any) => `${r.timestamp?.slice(0,10)}|${r.athlete}|${r.session_type}|${r.exercise}|${r.set_number}|${r.reps}|${r.load}|${r.rpe}`)
-    );
-
-    let synced = 0;
-    let skipped = 0;
-    let errors = 0;
-    const setCounters: Record<string, number> = {};
-
-    for (const row of dataRows) {
-      // Columns: Timestamp, Date, Athlete, SessionType, Exercise, Sets, Reps, Load, RPE
-      const [timestamp, , athlete, session_type, exercise, , reps, load, rpe] = row;
-
-      if (!athlete || !session_type || !exercise) { skipped++; continue; }
-
-      // Build a set number tracker per athlete+session+exercise within same timestamp date
-      const dateKey = (timestamp || '').slice(0, 10);
-      const setKey = `${dateKey}|${athlete}|${session_type}|${exercise}`;
-      setCounters[setKey] = (setCounters[setKey] || 0) + 1;
-      const set_number = setCounters[setKey];
-
-      // Normalise timestamp
-      let ts = timestamp?.trim();
-      if (!ts) ts = dateKey;
-      // Parse M/D/YYYY HH:MM:SS → ISO
-      const dtMatch = ts.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(.*)$/);
-      if (dtMatch) {
-        const [, m, d, y, time] = dtMatch;
-        ts = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}${time ? 'T'+time : 'T00:00:00'}`;
-      }
-
-      const repsNum = reps ? parseFloat(reps) : null;
-      const loadStr = load || null;
-      const rpeNum = rpe ? parseFloat(rpe) : null;
-
-      // Dedup check
-      const key = `${ts.slice(0,10)}|${athlete}|${session_type}|${exercise}|${set_number}|${repsNum}|${loadStr}|${rpeNum}`;
-      if (existingKeys.has(key)) { skipped++; continue; }
-
+    for (const ath of athletes) {
       try {
-        await base44.asServiceRole.entities.SessionLog.create({
-          timestamp: ts,
-          athlete: athlete.trim(),
-          session_type: session_type.trim(),
-          exercise: exercise.trim(),
-          set_number,
-          reps: repsNum,
-          load: loadStr,
-          rpe: rpeNum,
-        });
-        existingKeys.add(key);
-        synced++;
-      } catch(e) {
-        errors++;
+        const rows = await getSheetRows(token, `Athlete_${ath}`, 500);
+        if (rows.length < 2) continue;
+        // headers: Date, Session, Exercise, Sets, Reps, Load, RPE, Volume
+        for (const row of rows.slice(1)) {
+          if (!row[0] || !row[1] || !row[2]) continue;
+          const dateStr = sheetsDateToISO(row[0]);
+          newSessionRecords.push({
+            timestamp: `${dateStr}T09:00:00`,
+            athlete: ath,
+            session_type: row[1] || '',
+            exercise: row[2] || '',
+            set_number: parseInt(row[3]) || 1,
+            reps: row[4] || '',
+            load: row[5] || '',
+            rpe: row[6] ? parseInt(row[6]) : null,
+          });
+        }
+      } catch (e: any) {
+        results.errors.push(`Athlete_${ath}: ${e.message}`);
       }
+    }
+
+    // Clear existing and reload (full refresh strategy)
+    if (newSessionRecords.length > 0) {
+      const existing = await db.SessionLog.list();
+      for (const rec of existing) {
+        await db.SessionLog.delete(rec.id);
+      }
+      for (const rec of newSessionRecords) {
+        await db.SessionLog.create(rec);
+      }
+      results.session_records = newSessionRecords.length;
+    }
+
+    // ── 2. SYNC TESTING DATA from Core_Testing_Responses ────────────────────
+    const testRows = await getSheetRows(token, 'Core_Testing_Responses', 500);
+    const newTestRecords: any[] = [];
+
+    for (const row of testRows.slice(1)) {
+      if (row.length < 10) continue;
+      const firstName = (row[1] || '').trim().toUpperCase();
+      const lastName = (row[2] || '').trim().toUpperCase();
+      // Skip test/empty rows
+      if (!firstName || firstName === 'TEST' || firstName === 'NOTREAL') continue;
+
+      let ts = row[0];
+      try { ts = new Date(row[0]).toISOString(); } catch {}
+
+      newTestRecords.push({
+        timestamp: ts,
+        athlete_first: row[1].trim(),
+        athlete_last: row[2].trim(),
+        athlete_name: `${row[1].trim()} ${row[2].trim()}`,
+        year_level: row[3] || '',
+        height: parseFloat(row[4]) || null,
+        weight: parseFloat(row[5]) || null,
+        hollow_hold: parseFloat(row[6]) || null,
+        prone_plank: parseFloat(row[7]) || null,
+        side_plank_left: parseFloat(row[8]) || null,
+        side_plank_right: parseFloat(row[9]) || null,
+      });
+    }
+
+    if (newTestRecords.length > 0) {
+      const existing = await db.TestingResult.list();
+      for (const rec of existing) {
+        await db.TestingResult.delete(rec.id);
+      }
+      for (const rec of newTestRecords) {
+        await db.TestingResult.create(rec);
+      }
+      results.testing_records = newTestRecords.length;
     }
 
     return Response.json({
-      ok: true,
-      synced,
-      skipped,
-      errors,
-      message: `Synced ${synced} new records, skipped ${skipped} duplicates`
+      success: true,
+      synced_at: new Date().toISOString(),
+      ...results
     });
 
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
