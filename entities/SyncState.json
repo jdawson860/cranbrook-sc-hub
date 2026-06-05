@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "page_token": {
+      "type": "string"
+    },
+    "last_synced_at": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "name": "SyncState"
+}
