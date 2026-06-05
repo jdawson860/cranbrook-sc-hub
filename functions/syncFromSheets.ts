@@ -33,12 +33,17 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole.entities;
 
-    // Get Google Sheets token from env (set by automation) or request header
+    // Get token from env or request body
     const body = await req.json().catch(() => ({}));
-    const token = body.sheets_token || Deno.env.get("GOOGLESHEETS_ACCESS_TOKEN") || "";
+    let token = body.sheets_token || Deno.env.get("GOOGLESHEETS_ACCESS_TOKEN");
 
+    // If no token in env, we're in a webhook context — this sync will need to be called
+    // by an agent with the token available
     if (!token) {
-      return Response.json({ error: "No Google Sheets token available" }, { status: 400 });
+      return Response.json({
+        error: "No Google Sheets token available",
+        note: "This function should be called by the Bruce agent with a fresh token"
+      }, { status: 400 });
     }
 
     const athletes = ['AF', 'RR', 'JC', 'MA', 'TL', 'CC', 'SK', 'AS', 'AD', 'OO'];
