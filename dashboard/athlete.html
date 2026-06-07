@@ -218,7 +218,7 @@
 
       <div class="card" style="border:2px dashed var(--border);background:var(--bg)">
         <div class="field" style="margin-bottom:10px">
-          <label>Add Exercise</label>
+          <label>Add Extra Exercise</label>
           <select id="exSelect">
             <option value="">— Choose exercise —</option>
           </select>
@@ -709,7 +709,17 @@ function startSession() {
   if (!st) { showToast('Please select a session type'); return; }
   if (!currentAthlete) { showToast('Please select your name first'); changeAthlete(); return; }
   currentSession = { athlete: currentAthlete, session_type: st, timestamp: new Date().toISOString() };
-  exercises = [];
+
+  // Auto-populate all programmed exercises for this session type (3 sets each by default)
+  const exList = EXERCISES[st] || [];
+  exercises = exList.map(name => ({
+    name,
+    sets: [
+      { reps: '', load: '', rpe: '' },
+      { reps: '', load: '', rpe: '' },
+      { reps: '', load: '', rpe: '' },
+    ]
+  }));
 
   document.getElementById('scStep1').style.display = 'none';
   document.getElementById('scStep2').style.display = 'block';
@@ -717,9 +727,8 @@ function startSession() {
   document.getElementById('scAthName').textContent = currentAthlete;
   document.getElementById('scSessName').textContent = st;
 
-  // Populate exercise dropdown
-  const exList = EXERCISES[st] || [];
-  document.getElementById('exSelect').innerHTML = '<option value="">— Choose exercise —</option>' +
+  // Populate exercise dropdown (for adding extras not in the program)
+  document.getElementById('exSelect').innerHTML = '<option value="">— Add extra exercise —</option>' +
     exList.map(e => `<option value="${e}">${e}</option>`).join('');
 
   saveSession();
