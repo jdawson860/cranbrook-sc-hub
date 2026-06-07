@@ -158,8 +158,10 @@
     </div>
   </div>
   <div class="mode-bar">
-    <div class="mode-tab active" id="tab-sc" onclick="setMode('sc')">💪 S&amp;C Logger</div>
-    <div class="mode-tab" id="tab-erg" onclick="setMode('erg')">🚣 Erg Logger</div>
+    <div class="mode-tab active" id="tab-sc" onclick="setMode('sc')">💪 S&amp;C</div>
+    <div class="mode-tab" id="tab-erg" onclick="setMode('erg')">🚣 Erg</div>
+    <div class="mode-tab" id="tab-water" onclick="setMode('water')">🌊 Water</div>
+    <div class="mode-tab" id="tab-history" onclick="setMode('history')">📋 History</div>
   </div>
 </header>
 
@@ -411,6 +413,116 @@
   </div>
 </div>
 
+
+<!-- ═══════════════════════════════════════
+     WATER LOGGER PAGE
+═══════════════════════════════════════ -->
+<div class="page" id="page-water">
+  <div class="wrap">
+    <div class="status-bar" id="waterStatus" style="display:none">
+      <div>
+        <div class="status-ath" id="waterAthName">—</div>
+        <div class="status-sub">On-Water Session</div>
+      </div>
+    </div>
+
+    <p class="sec">Session Details</p>
+    <div class="card">
+      <div class="field">
+        <label>Session Type</label>
+        <select id="waterType">
+          <option value="">— Select —</option>
+          <option>Pieces</option>
+          <option>Steady State</option>
+          <option>Race Sim</option>
+          <option>Time Trial</option>
+          <option>Technique</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Boat Type</label>
+        <select id="waterBoat">
+          <option value="">— Select —</option>
+          <option>1x</option><option>2x</option><option>2-</option>
+          <option>4x</option><option>4+</option><option>4-</option>
+          <option>8+</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Conditions</label>
+        <select id="waterConditions">
+          <option value="">— Select —</option>
+          <option>Flat</option><option>Slight chop</option><option>Choppy</option>
+          <option>Headwind</option><option>Tailwind</option><option>Crosswind</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="sec">Performance</p>
+    <div class="card">
+      <div class="field">
+        <label>Total Distance (m)</label>
+        <input type="number" id="waterDist" inputmode="numeric" placeholder="e.g. 12000"/>
+      </div>
+      <div class="field">
+        <label>Duration (hh:mm)</label>
+        <input type="text" id="waterDuration" placeholder="e.g. 1:15"/>
+      </div>
+      <div class="field">
+        <label>Avg Split /500m</label>
+        <input type="text" id="waterSplit" placeholder="e.g. 2:05"/>
+      </div>
+      <div class="field">
+        <label>Stroke Rating (spm)</label>
+        <input type="number" id="waterRating" inputmode="numeric" placeholder="e.g. 20"/>
+      </div>
+      <div class="field">
+        <label>Avg Heart Rate (bpm)</label>
+        <input type="number" id="waterHr" inputmode="numeric" placeholder="e.g. 155"/>
+      </div>
+    </div>
+
+    <p class="sec">Pieces / Intervals (optional)</p>
+    <div class="card">
+      <div class="field">
+        <label>Describe pieces</label>
+        <textarea id="waterPieces" rows="3" placeholder="e.g. 4×2km r:3 — splits: 1:58, 1:57, 1:59, 1:56" style="width:100%;padding:11px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;outline:none"></textarea>
+      </div>
+    </div>
+
+    <p class="sec">Wellbeing</p>
+    <div class="card">
+      <div class="field">
+        <label>RPE (1–10)</label>
+        <input type="number" id="waterRpe" inputmode="numeric" min="1" max="10" placeholder="e.g. 7"/>
+        <div class="hint">1 = very easy · 10 = maximal effort</div>
+      </div>
+      <div class="field">
+        <label>Athlete Notes</label>
+        <textarea id="waterNotes" rows="2" placeholder="How did it feel? Technique notes…" style="width:100%;padding:11px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;outline:none"></textarea>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="submitWaterBtn" onclick="submitWater()">Submit Water Session ✓</button>
+    <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px">Saves to the coach dashboard</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     HISTORY PAGE
+═══════════════════════════════════════ -->
+<div class="page" id="page-history">
+  <div class="wrap">
+    <div id="historyContent">
+      <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:12px">⏳</div>
+        <div style="font-size:14px;font-weight:600">Loading your sessions…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────
 const BASE = 'https://superagent-84188511.base44.app/functions';
@@ -462,6 +574,9 @@ function selectAthlete(ath, showOverlay=true) {
   localStorage.setItem('cranbrook_athlete', ath);
   document.getElementById('overlay').classList.add('hidden');
   document.getElementById('headerAth').textContent = ath;
+  // Update water + history status
+  const ws = document.getElementById('waterStatus');
+  if(ws){ ws.style.display='flex'; document.getElementById('waterAthName').textContent=ath; }
 }
 
 function changeAthlete() {
@@ -471,10 +586,11 @@ function changeAthlete() {
 // ── MODE SWITCH ───────────────────────────────────────────────────────
 function setMode(m) {
   currentMode = m;
-  ['sc','erg'].forEach(id => {
+  ['sc','erg','water','history'].forEach(id => {
     document.getElementById(`page-${id}`).classList.toggle('active', id===m);
     document.getElementById(`tab-${id}`).classList.toggle('active', id===m);
   });
+  if (m === 'history') loadHistory();
 }
 
 // ── S&C LOGGER ───────────────────────────────────────────────────────
@@ -882,6 +998,147 @@ function showToast(msg, duration=3000) {
   t.textContent = msg; t.classList.remove('hidden');
   setTimeout(() => t.classList.add('hidden'), duration);
 }
+
+
+// ── WATER LOGGER ─────────────────────────────────────────────────────
+async function submitWater() {
+  if (!currentAthlete) { showToast('Select your name first'); changeAthlete(); return; }
+  const type = document.getElementById('waterType').value;
+  if (!type) { showToast('⚠️ Select a session type'); return; }
+
+  const btn = document.getElementById('submitWaterBtn');
+  btn.disabled = true; btn.textContent = '⏳ Submitting…';
+
+  const body = {
+    athlete: currentAthlete,
+    session_type: type,
+    boat_type: document.getElementById('waterBoat').value || null,
+    conditions: document.getElementById('waterConditions').value || null,
+    distance: document.getElementById('waterDist').value || null,
+    duration: document.getElementById('waterDuration').value || null,
+    avg_split: document.getElementById('waterSplit').value || null,
+    rating: document.getElementById('waterRating').value || null,
+    avg_heart_rate: document.getElementById('waterHr').value || null,
+    rpe: document.getElementById('waterRpe').value || null,
+    pieces: document.getElementById('waterPieces').value || null,
+    athlete_notes: document.getElementById('waterNotes').value || null,
+  };
+
+  try {
+    const res = await api('submitWater', body);
+    if (res.ok) {
+      showToast('✅ Water session logged!', 4000);
+      // Reset form
+      ['waterType','waterBoat','waterConditions'].forEach(id => document.getElementById(id).value='');
+      ['waterDist','waterDuration','waterSplit','waterRating','waterHr','waterRpe'].forEach(id => document.getElementById(id).value='');
+      ['waterPieces','waterNotes'].forEach(id => document.getElementById(id).value='');
+    } else {
+      showToast('❌ Error. Try again.');
+    }
+  } catch(e) {
+    showToast('❌ Network error. Try again.');
+  }
+  btn.disabled = false; btn.textContent = 'Submit Water Session ✓';
+}
+
+// ── HISTORY ──────────────────────────────────────────────────────────
+let historyLoaded = false;
+
+async function loadHistory() {
+  const el = document.getElementById('historyContent');
+  if (!currentAthlete) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Select your name first</div>';
+    return;
+  }
+  if (historyLoaded) return; // cache until athlete changes
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:32px;margin-bottom:12px">⏳</div><div style="font-size:14px;font-weight:600">Loading…</div></div>';
+
+  try {
+    const [scData, ergData, waterData] = await Promise.all([
+      api('getDashboardData', { view: 'athlete', athlete: currentAthlete }),
+      api('getErgData', { view: 'athlete', athlete: currentAthlete }),
+      api('getWaterData', { athlete: currentAthlete }),
+    ]);
+
+    const sessions = scData.sessionHistory || [];
+    const ergSessions = (ergData.sessions || []).slice(0, 20);
+    const waterSessions = (waterData.sessions || []).slice(0, 20);
+
+    let html = `<div style="margin-bottom:8px"><span style="font-size:13px;color:var(--muted);font-weight:600">${currentAthlete}'s Session History</span></div>`;
+
+    // S&C sessions
+    if (sessions.length > 0) {
+      html += `<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:16px 0 8px">💪 S&C Sessions (${sessions.length})</p>`;
+      sessions.forEach(s => {
+        const rpeClass = (s.avgRpe||0)>=8.5?'color:#e63946':(s.avgRpe||0)>=7.5?'color:#f59e0b':'color:#22c55e';
+        const exList = (s.exercises||[]).slice(0,4).join(', ') + (s.exercises?.length>4?` +${s.exercises.length-4}`:'');
+        html += `<div style="background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:800;font-size:14px">${s.date}</span>
+            <span style="background:var(--navy);color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700">${s.session_type}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${exList}</div>
+          <div style="display:flex;gap:16px;font-size:12px">
+            <span>${s.totalSets} sets</span>
+            <span ${rpeClass}>RPE ${s.avgRpe||'—'}</span>
+            <span style="color:var(--muted)">${s.totalLoad>0?s.totalLoad.toLocaleString()+'kg vol':'—'}</span>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Erg sessions
+    if (ergSessions.length > 0) {
+      html += `<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:16px 0 8px">🚣 Erg Sessions (${ergSessions.length})</p>`;
+      ergSessions.forEach(s => {
+        const dist = s.total_distance ? (s.total_distance>=1000?(s.total_distance/1000).toFixed(1)+'km':s.total_distance+'m') : '—';
+        html += `<div style="background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:800;font-size:14px">${s.timestamp?.slice(0,10)||'—'}</span>
+            <span style="background:#0c1f48;color:#93c5fd;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700">${s.workout_type||'Erg'}</span>
+          </div>
+          <div style="display:flex;gap:16px;font-size:13px;font-weight:700">
+            <span>${dist}</span>
+            <span style="font-family:monospace;color:var(--blue)">${s.avg_split||'—'} /500m</span>
+            <span style="color:var(--muted)">RPE ${s.rpe||'—'}</span>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Water sessions
+    if (waterSessions.length > 0) {
+      html += `<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:16px 0 8px">🌊 Water Sessions (${waterSessions.length})</p>`;
+      waterSessions.forEach(s => {
+        html += `<div style="background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:800;font-size:14px">${s.timestamp?.slice(0,10)||'—'}</span>
+            <span style="background:#0c4a6e;color:#7dd3fc;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700">${s.session_type||'Water'}</span>
+          </div>
+          <div style="display:flex;gap:16px;font-size:13px">
+            <span style="font-weight:700">${s.boat_type||''}</span>
+            <span style="color:var(--muted)">${s.distance?s.distance.toLocaleString()+'m':'—'}</span>
+            <span style="font-family:monospace;color:var(--blue)">${s.avg_split?s.avg_split+' /500m':'—'}</span>
+            <span style="color:var(--muted)">RPE ${s.rpe||'—'}</span>
+          </div>
+          ${s.athlete_notes?`<div style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic">"${s.athlete_notes}"</div>`:''}
+        </div>`;
+      });
+    }
+
+    if (!sessions.length && !ergSessions.length && !waterSessions.length) {
+      html = '<div style="text-align:center;padding:60px 20px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-weight:700;font-size:15px">No sessions yet</div><div style="font-size:13px;margin-top:6px">Log a session to see your history here</div></div>';
+    }
+
+    el.innerHTML = html;
+    historyLoaded = true;
+  } catch(e) {
+    el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">Failed to load history: ${e.message}</div>`;
+  }
+}
+
+// Reset history cache when athlete changes
+const _origSelectAthlete = selectAthlete;
 
 init();
 </script>

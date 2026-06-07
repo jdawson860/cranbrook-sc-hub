@@ -1,0 +1,75 @@
+{
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string"
+    },
+    "athlete": {
+      "type": "string"
+    },
+    "session_type": {
+      "type": "string",
+      "enum": [
+        "Pieces",
+        "Steady State",
+        "Race Sim",
+        "Time Trial",
+        "Technique",
+        "Other"
+      ]
+    },
+    "boat_type": {
+      "type": "string",
+      "enum": [
+        "1x",
+        "2x",
+        "2-",
+        "4x",
+        "4+",
+        "4-",
+        "8+",
+        "Other"
+      ]
+    },
+    "distance": {
+      "type": "number"
+    },
+    "duration": {
+      "type": "string"
+    },
+    "avg_split": {
+      "type": "string"
+    },
+    "rating": {
+      "type": "number"
+    },
+    "avg_heart_rate": {
+      "type": "number"
+    },
+    "rpe": {
+      "type": "number"
+    },
+    "conditions": {
+      "type": "string",
+      "enum": [
+        "Flat",
+        "Slight chop",
+        "Choppy",
+        "Headwind",
+        "Tailwind",
+        "Crosswind"
+      ]
+    },
+    "coach_notes": {
+      "type": "string"
+    },
+    "athlete_notes": {
+      "type": "string"
+    },
+    "pieces": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "name": "WaterSession"
+}
