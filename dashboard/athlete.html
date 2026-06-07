@@ -639,10 +639,47 @@ const api = (fn, body) => fetch(`${BASE}/${fn}`, {
 const ATHLETES = ['AF','RR','JC','MA','TL','CC','SK','AS','HM','TD'];
 
 const EXERCISES = {
-  'Lower A': ['Romanian Deadlift','Front Squat','Bulgarian Split Squat','Nordic Curl','Leg Press','Hip Thrust','Calf Raise','GHD Raise'],
-  'Lower B': ['Trap Bar Deadlift','Back Squat','Single Leg RDL','Leg Curl','Leg Extension','Step Up','Glute Bridge','GHD Hold'],
-  'Upper A': ['Bench Press','Bent Over Row','Lat Pulldown','Overhead Press','Cable Row','Face Pull','Bicep Curl','Tricep Pushdown','Chin Ups'],
-  'Upper B': ['Incline DB Press','Pull Up','DB Row','Landmine Press','Cable Fly','Rear Delt Fly','Hammer Curl','Skull Crusher','Chin Ups'],
+  // T2 W7-10 — Lower Body Session 1
+  'Lower A': [
+    'BB Back Squat (Heels Elevated)',
+    'Front Foot Elevated Split Squat',
+    'Eccentric Hamstring Sliders',
+    'GHD Anti-Lateral Flexion Hold',
+    'BB High Pull',
+    'Ankle Mobility Dorsiflexion',
+    'Hurdle Jump & Stick Landing',
+    'Single Leg Calf Raise on Step',
+  ],
+  // T2 W7-10 — Lower Body Session 2
+  'Lower B': [
+    'BB RDL',
+    'Leg Press',
+    'Leg Extension',
+    'Single Leg Hip Thrust',
+    'Hanging Straight Leg Raise',
+    'Landmine Rotation',
+    'SB Rollout + Plank Hold',
+  ],
+  // T2 W7-10 — Upper Body Session 1
+  'Upper A': [
+    'Chin Ups',
+    'Bench Press',
+    'Single Arm DB Row',
+    'Incline DB Bench Press',
+    'Reverse DB Flys (Chest Supported)',
+    'Plate Weighted Sit Ups',
+    'Swiss Ball Deadbug',
+  ],
+  // T2 W7-10 — Upper Body Session 2
+  'Upper B': [
+    'Bench Pull',
+    'BB Shoulder Press',
+    'DB Lateral Raise',
+    'Biceps of Your Choice',
+    'Half Kneeling Banded Cuban Press',
+    'Half Kneeling Wall Thoracic Rotation',
+    'Pallof Press ISO Hold',
+  ],
 };
 
 const TIME_EXERCISES = ['GHD Hold','Prone Plank','Side Plank','GHD Raise','Hollow Hold'];

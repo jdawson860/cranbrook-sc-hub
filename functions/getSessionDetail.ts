@@ -5,40 +5,46 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // Add/update as new sessions are programmed.
 // Exercises NOT in the list will appear at the end, in DB order.
 const SESSION_EXERCISE_ORDER: Record<string, string[]> = {
+  // T2 W7-10 — Lower Body Session 1
   'Lower A': [
-    'TRAP BAR DEADLIFT',
-    'LEG PRESS',
-    'NORDIC CURL',
-    'CALF RAISE',
-    'GHD SIT UP',
-    'HOLLOW HOLD',
-    'PRONE PLANK',
+    'BB Back Squat (Heels Elevated)',
+    'Front Foot Elevated Split Squat',
+    'Eccentric Hamstring Sliders',
+    'GHD Anti-Lateral Flexion Hold',
+    'BB High Pull',
+    'Hurdle Jump & Stick Landing',
+    'Ankle Mobility Dorsiflexion',
+    'Single Leg Calf Raise on Step',
   ],
+  // T2 W7-10 — Lower Body Session 2
   'Lower B': [
-    'BELT SQUAT',
-    'SINGLE LEG HIP THRUST',
-    'LEG EXTENSION (DOUBLE + SINGLE)',
     'BB RDL',
-    'CALF RAISE',
-    'GHD SIT UP',
-    'HOLLOW HOLD',
+    'Leg Press',
+    'Leg Extension',
+    'Single Leg Hip Thrust',
+    'Hanging Straight Leg Raise',
+    'Landmine Rotation',
+    'SB Rollout + Plank Hold',
   ],
+  // T2 W7-10 — Upper Body Session 1
   'Upper A': [
-    'BENCH PRESS',
-    'CHIN UP',
-    'DB SHOULDER PRESS',
-    'SEATED ROW',
-    'DB LATERAL RAISE',
-    'FACE PULL',
-    'TRICEPS OF YOUR CHOICE',
+    'Chin Ups',
+    'Bench Press',
+    'Single Arm DB Row',
+    'Incline DB Bench Press',
+    'Reverse DB Flys (Chest Supported)',
+    'Plate Weighted Sit Ups',
+    'Swiss Ball Deadbug',
   ],
+  // T2 W7-10 — Upper Body Session 2
   'Upper B': [
-    'BENCH PULL',
-    'BB SHOULDER PRESS',
-    'DB LATERAL RAISE',
-    'BICEPS OF YOUR CHOICE',
-    'FACE PULL',
-    'TRICEPS OF YOUR CHOICE',
+    'Bench Pull',
+    'BB Shoulder Press',
+    'DB Lateral Raise',
+    'Biceps of Your Choice',
+    'Half Kneeling Banded Cuban Press',
+    'Half Kneeling Wall Thoracic Rotation',
+    'Pallof Press ISO Hold',
   ],
 };
 
