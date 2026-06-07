@@ -260,12 +260,12 @@
 
     <!-- Mode toggle: Manual vs Photo -->
     <div class="erg-mode">
-      <button class="erg-mode-btn active" id="em-manual" onclick="setErgMode('manual')">✏️ Manual Entry</button>
-      <button class="erg-mode-btn" id="em-photo" onclick="setErgMode('photo')">📸 Photo Upload</button>
+      <button class="erg-mode-btn" id="em-manual" onclick="setErgMode('manual')">✏️ Manual Entry</button>
+      <button class="erg-mode-btn active" id="em-photo" onclick="setErgMode('photo')">📸 Photo Upload</button>
     </div>
 
     <!-- MANUAL ERG FORM -->
-    <div id="ergManual">
+    <div id="ergManual" style="display:none">
       <div class="card">
         <div class="field">
           <label>Workout Type</label>
@@ -371,7 +371,7 @@
     </div>
 
     <!-- PHOTO ERG FORM -->
-    <div id="ergPhoto" style="display:none">
+    <div id="ergPhoto">
       <div class="card">
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Take a photo of the completed workout on the Concept2 screen and we'll extract all the data automatically.</p>
 
