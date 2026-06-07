@@ -287,6 +287,7 @@
         <button class="snav-btn" id="snav-testing" onclick="switchTab('testing')">📋 Testing</button>
         <button class="snav-btn" id="snav-wellness" onclick="switchTab('wellness')">💚 Wellness</button>
         <button class="snav-btn" id="snav-compare" onclick="switchTab('compare')">⚖️ Compare</button>
+        <button class="snav-btn" id="snav-cp" onclick="switchTab('cp')">⚡ Critical Power</button>
       </div>
       <div class="sidebar-athlete-sel" id="athSelWrap" style="display:none">
         <label>Athlete</label>
@@ -403,6 +404,7 @@ function switchView(view){
     document.getElementById('snav-testing').style.display='none';
     document.getElementById('snav-wellness').style.display='none';
     document.getElementById('snav-compare').style.display='none';
+    document.getElementById('snav-cp').style.display='none';
     athWrap.style.display='block';
     loadAthleteView();
   } else {
@@ -412,6 +414,7 @@ function switchView(view){
     document.getElementById('snav-testing').style.display='';
     document.getElementById('snav-wellness').style.display='';
     document.getElementById('snav-compare').style.display='';
+    document.getElementById('snav-cp').style.display='';
     athWrap.style.display='none';
     switchTab(currentTab);
   }
@@ -419,7 +422,7 @@ function switchView(view){
 
 function switchTab(tab){
   currentTab = tab;
-  ['sc','erg','water','testing'].forEach(t=>{
+  ['sc','erg','water','testing','wellness','compare','cp'].forEach(t=>{
     const el = document.getElementById(`snav-${t}`);
     if(el) el.classList.toggle('active', t===tab);
   });
@@ -435,6 +438,7 @@ function switchTab(tab){
   else if(tab==='testing') loadTestingView();
   else if(tab==='wellness') loadWellnessView();
   else if(tab==='compare') loadCompareView();
+  else if(tab==='cp') loadCPView();
 }
 
 // ═══════════════════════════════════════════════════
@@ -2831,6 +2835,344 @@ async function runCmpTesting() {
       }
     });
   }
+}
+
+
+// ═══════════════════════════════════════════════════
+// CRITICAL POWER VIEW
+// ═══════════════════════════════════════════════════
+
+// Sample CP test data: realistic rowing watts
+const CP_SAMPLE_DATA = {
+  AF: { name:'AF', sevenStroke:750, threeMin:420, twelveMin:330, thirtyMin:290 },
+  RR: { name:'RR', sevenStroke:810, threeMin:460, twelveMin:362, thirtyMin:318 },
+  JC: { name:'JC', sevenStroke:780, threeMin:445, twelveMin:348, thirtyMin:305 },
+  MA: { name:'MA', sevenStroke:720, threeMin:400, twelveMin:315, thirtyMin:278 },
+  TL: { name:'TL', sevenStroke:830, threeMin:470, twelveMin:370, thirtyMin:325 },
+  CC: { name:'CC', sevenStroke:760, threeMin:430, twelveMin:338, thirtyMin:296 },
+  SK: { name:'SK', sevenStroke:800, threeMin:452, twelveMin:355, thirtyMin:312 },
+  AS: { name:'AS', sevenStroke:740, threeMin:410, twelveMin:322, thirtyMin:282 },
+  HM: { name:'HM', sevenStroke:820, threeMin:465, twelveMin:366, thirtyMin:321 },
+  TD: { name:'TD', sevenStroke:770, threeMin:438, twelveMin:342, thirtyMin:300 }
+};
+
+// Test durations in seconds
+const CP_DURATIONS = {
+  sevenStroke: 7,    // ~7 seconds for 7-stroke max
+  threeMin:    180,  // 3 min
+  twelveMin:   720,  // 12 min
+  thirtyMin:   1800  // 30 min R20
+};
+
+const CP_LABELS = {
+  sevenStroke: '7-Stroke Max',
+  threeMin:    '3 min',
+  twelveMin:   '12 min',
+  thirtyMin:   '30 min R20'
+};
+
+/**
+ * Fit 2-parameter critical power model: P(t) = W'/t + CP
+ * Using least-squares on the linearised form: P*t = W' + CP*t
+ * i.e. regress y = P*t against x = t → slope=CP, intercept=W'
+ * Exclude the 7-stroke max (too short, anaerobic spike) from regression,
+ * use it as a Pmax sanity check only.
+ */
+function fitCriticalPower(data) {
+  // Use 3min, 12min, 30min for regression
+  const pts = ['threeMin','twelveMin','thirtyMin'].map(k => ({
+    t: CP_DURATIONS[k],
+    P: data[k]
+  }));
+
+  const n = pts.length;
+  const xs = pts.map(p => p.t);          // duration (s)
+  const ys = pts.map(p => p.P * p.t);   // total work (J = W*s)
+
+  const sumX  = xs.reduce((a,b)=>a+b, 0);
+  const sumY  = ys.reduce((a,b)=>a+b, 0);
+  const sumXX = xs.reduce((a,x)=>a+x*x, 0);
+  const sumXY = xs.reduce((a,x,i)=>a+x*ys[i], 0);
+
+  const denom = n*sumXX - sumX*sumX;
+  const CP = (n*sumXY - sumX*sumY) / denom;        // slope = CP (W)
+  const Wprime = (sumY - CP*sumX) / n;             // intercept = W' (J)
+
+  return { CP: Math.round(CP), Wprime: Math.round(Wprime) };
+}
+
+let cpChart = null;
+
+function loadCPView() {
+  const athletes = Object.keys(CP_SAMPLE_DATA);
+  document.getElementById('mainContent').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:2px">⚡ Critical Power</div>
+        <div style="font-size:12px;color:#8fa0be">2-parameter CP model fitted from 4 maximal rowing tests</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#8fa0be">Athlete</label>
+        <select id="cpAthSel" onchange="renderCPAthlete(this.value)" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;outline:none">
+          ${athletes.map(a=>`<option value="${a}" style="background:#0d2545">${a}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <!-- Squad overview table -->
+    <div class="section-title">Squad CP Summary</div>
+    <div class="card" style="margin-bottom:20px;padding:0;overflow:hidden">
+      <table class="data-table" id="cpSquadTable">
+        <thead>
+          <tr>
+            <th>Athlete</th>
+            <th>7-Stroke Max (W)</th>
+            <th>3 min (W)</th>
+            <th>12 min (W)</th>
+            <th>30 min R20 (W)</th>
+            <th>CP (W)</th>
+            <th>W' (kJ)</th>
+            <th>W':CP Ratio</th>
+          </tr>
+        </thead>
+        <tbody id="cpSquadBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Individual athlete CP chart -->
+    <div class="section-title" id="cpChartTitle">Power-Duration Curve — <span id="cpChartAth"></span></div>
+    <div class="two-col" style="gap:20px">
+      <div class="card" style="grid-column:1/2">
+        <div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px">Critical Power</div>
+            <div style="font-size:36px;font-weight:800;color:var(--navy)" id="cpValueDisplay">—</div>
+            <div style="font-size:12px;color:var(--muted)">Watts</div>
+          </div>
+          <div style="width:1px;background:var(--border)"></div>
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px">W' (Anaerobic Capacity)</div>
+            <div style="font-size:36px;font-weight:800;color:#1a56db" id="wprimeValueDisplay">—</div>
+            <div style="font-size:12px;color:var(--muted)">kilojoules</div>
+          </div>
+          <div style="width:1px;background:var(--border)"></div>
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px">W':CP Ratio</div>
+            <div style="font-size:36px;font-weight:800;color:#7c3aed" id="ratioDisplay">—</div>
+            <div style="font-size:12px;color:var(--muted)">seconds</div>
+          </div>
+          <div style="width:1px;background:var(--border)"></div>
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px">Pmax (7-Stroke)</div>
+            <div style="font-size:36px;font-weight:800;color:#e63946" id="pmaxDisplay">—</div>
+            <div style="font-size:12px;color:var(--muted)">Watts</div>
+          </div>
+        </div>
+        <canvas id="cpChart" style="max-height:340px"></canvas>
+      </div>
+
+      <div class="card" style="grid-column:2/3">
+        <div class="card-title">Test Results</div>
+        <table class="data-table" id="cpTestTable">
+          <thead>
+            <tr><th>Test</th><th>Duration</th><th>Power (W)</th><th>Model Pred. (W)</th><th>Residual</th></tr>
+          </thead>
+          <tbody id="cpTestBody"></tbody>
+        </table>
+        <div style="margin-top:20px;padding:14px;background:#f8fafc;border-radius:10px;border-left:4px solid #1a56db">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Model</div>
+          <div style="font-size:13px;color:var(--navy);font-family:monospace" id="cpEquation">P(t) = W'/t + CP</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">Fit from 3 min, 12 min & 30 min R20 efforts. 7-stroke max used as Pmax reference only.</div>
+        </div>
+        <div style="margin-top:16px;padding:14px;background:#fff3e0;border-radius:10px;border-left:4px solid #f59e0b">
+          <div style="font-size:11px;font-weight:700;color:#e65100;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Interpretation</div>
+          <div style="font-size:12px;color:#7c5200;line-height:1.6" id="cpInterpretation">Select an athlete to view interpretation.</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Build squad table
+  buildCPSquadTable();
+
+  // Render first athlete
+  renderCPAthlete(athletes[0]);
+}
+
+function buildCPSquadTable() {
+  const tbody = document.getElementById('cpSquadBody');
+  if (!tbody) return;
+  const rows = Object.values(CP_SAMPLE_DATA).map(d => {
+    const { CP, Wprime } = fitCriticalPower(d);
+    const ratio = Math.round(Wprime / CP);
+    return `<tr onclick="document.getElementById('cpAthSel').value='${d.name}';renderCPAthlete('${d.name}')" style="cursor:pointer">
+      <td><span class="athlete-name">${d.name}</span></td>
+      <td style="font-weight:600;color:#e63946">${d.sevenStroke}</td>
+      <td>${d.threeMin}</td>
+      <td>${d.twelveMin}</td>
+      <td>${d.thirtyMin}</td>
+      <td style="font-weight:800;color:var(--navy);font-size:15px">${CP}</td>
+      <td style="font-weight:700;color:#1a56db">${(Wprime/1000).toFixed(1)}</td>
+      <td style="font-weight:600;color:#7c3aed">${ratio}s</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rows;
+}
+
+function renderCPAthlete(ath) {
+  const data = CP_SAMPLE_DATA[ath];
+  if (!data) return;
+
+  const { CP, Wprime } = fitCriticalPower(data);
+  const ratio = Math.round(Wprime / CP);
+
+  // Update key metrics
+  document.getElementById('cpValueDisplay').textContent = CP + ' W';
+  document.getElementById('wprimeValueDisplay').textContent = (Wprime/1000).toFixed(1) + ' kJ';
+  document.getElementById('ratioDisplay').textContent = ratio + ' s';
+  document.getElementById('pmaxDisplay').textContent = data.sevenStroke + ' W';
+  document.getElementById('cpChartAth').textContent = ath;
+  document.getElementById('cpEquation').textContent = `P(t) = ${Wprime.toLocaleString()} / t  +  ${CP}`;
+
+  // Interpretation
+  let interp = '';
+  if (CP > 350) interp = `<b>${ath}</b> has an elite CP of <b>${CP}W</b> — excellent aerobic ceiling for rowing. `;
+  else if (CP > 310) interp = `<b>${ath}</b> has a strong CP of <b>${CP}W</b> — competitive aerobic capacity. `;
+  else interp = `<b>${ath}</b> has a developing CP of <b>${CP}W</b> — aerobic base is the training priority. `;
+
+  if (ratio > 25) interp += `High W':CP ratio (${ratio}s) indicates strong anaerobic reserve — well-suited to sprint finishes.`;
+  else if (ratio > 18) interp += `Moderate W':CP ratio (${ratio}s) — balanced aerobic/anaerobic profile.`;
+  else interp += `Lower W':CP ratio (${ratio}s) — aerobically dominant athlete, long-distance specialist.`;
+
+  document.getElementById('cpInterpretation').innerHTML = interp;
+
+  // Build test results table
+  const tests = ['threeMin','twelveMin','thirtyMin'];
+  const testRows = ['sevenStroke','threeMin','twelveMin','thirtyMin'].map(k => {
+    const t = CP_DURATIONS[k];
+    const actual = data[k];
+    let pred = '—', residual = '—', residStyle = '';
+    if (tests.includes(k)) {
+      const predW = (Wprime / t) + CP;
+      const res = actual - predW;
+      pred = Math.round(predW);
+      residual = (res >= 0 ? '+' : '') + Math.round(res) + 'W';
+      residStyle = res > 5 ? 'color:#22c55e;font-weight:700' : res < -5 ? 'color:#e63946;font-weight:700' : 'color:var(--muted)';
+    } else {
+      pred = 'Pmax ref';
+      residual = '—';
+      residStyle = 'color:#8fa0be;font-style:italic';
+    }
+    return `<tr>
+      <td style="font-weight:700">${CP_LABELS[k]}</td>
+      <td style="color:var(--muted)">${t < 60 ? t+'s' : (t/60)+'min'}</td>
+      <td style="font-weight:800;color:var(--navy)">${actual}</td>
+      <td style="color:#1a56db;font-weight:600">${pred}</td>
+      <td style="${residStyle}">${residual}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('cpTestBody').innerHTML = testRows;
+
+  // Build chart
+  if (cpChart) { cpChart.destroy(); cpChart = null; }
+
+  // Generate smooth power-duration curve from 5s to 3600s
+  const tRange = [];
+  for (let t = 5; t <= 3600; t += (t < 60 ? 5 : t < 600 ? 10 : 30)) tRange.push(t);
+  const cpCurve = tRange.map(t => ({ x: t, y: Math.round((Wprime/t) + CP) }));
+
+  // Measured data points (all 4)
+  const measuredPts = ['sevenStroke','threeMin','twelveMin','thirtyMin'].map(k => ({
+    x: CP_DURATIONS[k],
+    y: data[k]
+  }));
+
+  // CP asymptote line
+  const cpLine = [{ x: 5, y: CP }, { x: 3600, y: CP }];
+
+  const ctx = document.getElementById('cpChart').getContext('2d');
+  cpChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'CP Model Curve',
+          data: cpCurve,
+          borderColor: '#1a56db',
+          backgroundColor: 'rgba(26,86,219,0.08)',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          fill: true,
+          tension: 0.3,
+          order: 3
+        },
+        {
+          label: 'Critical Power (asymptote)',
+          data: cpLine,
+          borderColor: '#e63946',
+          borderWidth: 2,
+          borderDash: [8, 4],
+          pointRadius: 0,
+          fill: false,
+          order: 2
+        },
+        {
+          label: 'Measured Tests',
+          data: measuredPts,
+          type: 'scatter',
+          backgroundColor: ['#e63946','#07122b','#07122b','#07122b'],
+          borderColor: '#fff',
+          borderWidth: 2,
+          pointRadius: 8,
+          pointHoverRadius: 10,
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#5a6a8a', font: { size: 12, weight: '600' } } },
+        tooltip: {
+          callbacks: {
+            title: ctx => {
+              const t = ctx[0].parsed.x;
+              return t < 60 ? `${t}s` : t < 3600 ? `${Math.round(t/60)}min ${t%60 ? (t%60)+'s' : ''}`.trim() : `${Math.round(t/3600)}h`;
+            },
+            label: ctx => `${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}W`
+          }
+        },
+        annotation: {}
+      },
+      scales: {
+        x: {
+          type: 'logarithmic',
+          title: { display: true, text: 'Duration', color: '#5a6a8a', font: { weight: '700' } },
+          grid: { color: 'rgba(0,0,0,.06)' },
+          ticks: {
+            color: '#5a6a8a',
+            callback: val => {
+              if (val === 10) return '10s';
+              if (val === 60) return '1min';
+              if (val === 180) return '3min';
+              if (val === 600) return '10min';
+              if (val === 720) return '12min';
+              if (val === 1800) return '30min';
+              if (val === 3600) return '60min';
+              return '';
+            },
+            maxTicksLimit: 10
+          }
+        },
+        y: {
+          title: { display: true, text: 'Power (W)', color: '#5a6a8a', font: { weight: '700' } },
+          grid: { color: 'rgba(0,0,0,.06)' },
+          ticks: { color: '#5a6a8a', callback: val => val + 'W' }
+        }
+      }
+    }
+  });
 }
 
 </script>
