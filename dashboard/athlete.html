@@ -128,6 +128,11 @@
       .ath-grid{grid-template-columns:repeat(2,1fr)}
       .set-row{grid-template-columns:32px 1fr 1fr 70px 28px;gap:6px}
     }
+    .rating-btn{flex:1;padding:12px 0;background:var(--bg);border:2px solid var(--border);border-radius:10px;font-size:18px;font-weight:800;color:var(--navy);cursor:pointer;transition:all .18s;text-align:center;-webkit-tap-highlight-color:transparent}
+    .rating-btn:hover,.rating-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+    .rating-btn.active{box-shadow:0 2px 12px rgba(26,86,219,.4)}
+    .yr-btn{padding:12px 0;background:var(--bg);border:2px solid var(--border);border-radius:10px;font-size:14px;font-weight:800;color:var(--navy);cursor:pointer;transition:all .18s;text-align:center}
+    .yr-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
   </style>
 </head>
 <body>
@@ -161,6 +166,7 @@
     <div class="mode-tab active" id="tab-sc" onclick="setMode('sc')">💪 S&amp;C</div>
     <div class="mode-tab" id="tab-erg" onclick="setMode('erg')">🚣 Erg</div>
     <div class="mode-tab" id="tab-water" onclick="setMode('water')">🌊 Water</div>
+    <div class="mode-tab" id="tab-wellness" onclick="setMode('wellness')">❤️ Wellness</div>
     <div class="mode-tab" id="tab-history" onclick="setMode('history')">📋 History</div>
   </div>
 </header>
@@ -523,6 +529,120 @@
   </div>
 </div>
 
+
+<!-- ═══════════════════════════════════════
+     ONBOARDING OVERLAY (first use)
+═══════════════════════════════════════ -->
+<div id="onboardOverlay" class="overlay hidden" style="z-index:500">
+  <div class="overlay-card" style="max-width:420px;width:92%">
+    <div style="text-align:center;margin-bottom:20px">
+      <img src="https://media.base44.com/images/public/6a2139cf1719e3fb84188511/dbd88bf6d_Cranbrooklogo.jpg" style="width:60px;height:60px;object-fit:contain;margin-bottom:10px" alt="Cranbrook"/>
+      <h2 style="font-size:20px;font-weight:900;color:var(--navy);margin-bottom:6px">Welcome to the Cranbrook S&C Hub</h2>
+      <p style="font-size:13px;color:var(--muted)">Tell us a bit about yourself — this is saved once and used to personalise your experience.</p>
+    </div>
+
+    <div class="field" style="margin-bottom:12px">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px">Full Name</label>
+      <input type="text" id="onboardName" placeholder="e.g. Alex Fletcher" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:16px;outline:none"/>
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px">Year Level</label>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <button class="yr-btn" onclick="setOnboardYear('9')">Year 9</button>
+        <button class="yr-btn" onclick="setOnboardYear('10')">Year 10</button>
+        <button class="yr-btn" onclick="setOnboardYear('11')">Year 11</button>
+        <button class="yr-btn" onclick="setOnboardYear('12')">Year 12</button>
+      </div>
+      <input type="hidden" id="onboardYear"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="field">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px">Height (cm)</label>
+        <input type="number" id="onboardHeight" inputmode="decimal" placeholder="e.g. 185" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:16px;outline:none"/>
+      </div>
+      <div class="field">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px">Weight (kg)</label>
+        <input type="number" id="onboardWeight" inputmode="decimal" placeholder="e.g. 78.5" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:16px;outline:none"/>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveOnboarding()" style="width:100%;padding:15px;border:none;border-radius:12px;background:var(--blue);color:#fff;font-size:16px;font-weight:800;cursor:pointer">Let's Go →</button>
+    <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px">You can update these anytime</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     WELLNESS CHECK-IN PAGE
+═══════════════════════════════════════ -->
+<div class="page" id="page-wellness">
+  <div class="wrap">
+    <div class="status-bar" id="wellnessStatus" style="display:none">
+      <div>
+        <div class="status-ath" id="wellnessAthName">—</div>
+        <div class="status-sub">Daily Wellness Check-In</div>
+      </div>
+    </div>
+
+    <div id="wellnessSuccess" style="display:none;text-align:center;padding:40px 20px">
+      <div style="font-size:48px;margin-bottom:12px">❤️</div>
+      <h3 style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:8px">Check-in recorded!</h3>
+      <p id="wellnessScoreMsg" style="font-size:15px;color:var(--muted)">Your readiness score has been saved.</p>
+      <div id="readinessMeter" style="margin:20px auto;width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;border:4px solid #22c55e;color:#07122b"></div>
+      <p style="font-size:12px;color:var(--muted)">Visible to your coach on the dashboard</p>
+      <button onclick="resetWellness()" style="margin-top:16px;padding:12px 24px;background:var(--bg);border:2px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">Log another day</button>
+    </div>
+
+    <div id="wellnessForm">
+      <p class="sec">How are you feeling today?</p>
+      <div class="card">
+        <div style="margin-bottom:20px">
+          <div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:4px">😴 Sleep Quality</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">1 = terrible · 5 = excellent</div>
+          <div style="display:flex;gap:8px">
+            <button class="rating-btn" id="sleep-1" onclick="setRating('sleep',1)">1</button>
+            <button class="rating-btn" id="sleep-2" onclick="setRating('sleep',2)">2</button>
+            <button class="rating-btn" id="sleep-3" onclick="setRating('sleep',3)">3</button>
+            <button class="rating-btn" id="sleep-4" onclick="setRating('sleep',4)">4</button>
+            <button class="rating-btn" id="sleep-5" onclick="setRating('sleep',5)">5</button>
+          </div>
+        </div>
+        <div style="margin-bottom:20px">
+          <div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:4px">💪 Muscle Soreness</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">1 = no soreness · 5 = very sore</div>
+          <div style="display:flex;gap:8px">
+            <button class="rating-btn" id="soreness-1" onclick="setRating('soreness',1)">1</button>
+            <button class="rating-btn" id="soreness-2" onclick="setRating('soreness',2)">2</button>
+            <button class="rating-btn" id="soreness-3" onclick="setRating('soreness',3)">3</button>
+            <button class="rating-btn" id="soreness-4" onclick="setRating('soreness',4)">4</button>
+            <button class="rating-btn" id="soreness-5" onclick="setRating('soreness',5)">5</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:4px">🔥 Motivation to Train</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">1 = can't be bothered · 5 = ready to go</div>
+          <div style="display:flex;gap:8px">
+            <button class="rating-btn" id="motivation-1" onclick="setRating('motivation',1)">1</button>
+            <button class="rating-btn" id="motivation-2" onclick="setRating('motivation',2)">2</button>
+            <button class="rating-btn" id="motivation-3" onclick="setRating('motivation',3)">3</button>
+            <button class="rating-btn" id="motivation-4" onclick="setRating('motivation',4)">4</button>
+            <button class="rating-btn" id="motivation-5" onclick="setRating('motivation',5)">5</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="sec">Optional</p>
+      <div class="card">
+        <div class="field">
+          <label>Anything else? (injury niggles, illness, personal notes)</label>
+          <textarea id="wellnessNotes" rows="3" placeholder="e.g. tight hamstring from yesterday, feeling a bit run down…" style="width:100%;padding:11px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;outline:none"></textarea>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="submitWellnessBtn" onclick="submitWellness()">Submit Check-In ❤️</button>
+      <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px">Shared with your coach — do this before each training day</p>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────
 const BASE = 'https://superagent-84188511.base44.app/functions';
@@ -574,9 +694,15 @@ function selectAthlete(ath, showOverlay=true) {
   localStorage.setItem('cranbrook_athlete', ath);
   document.getElementById('overlay').classList.add('hidden');
   document.getElementById('headerAth').textContent = ath;
-  // Update water + history status
+  // Update water + wellness status
   const ws = document.getElementById('waterStatus');
   if(ws){ ws.style.display='flex'; document.getElementById('waterAthName').textContent=ath; }
+  const wellS = document.getElementById('wellnessStatus');
+  if(wellS){ wellS.style.display='flex'; document.getElementById('wellnessAthName').textContent=ath; }
+  // Reset history cache on athlete change
+  historyLoaded = false;
+  // Check if first time
+  if(showOverlay) checkOnboarding(ath);
 }
 
 function changeAthlete() {
@@ -586,7 +712,7 @@ function changeAthlete() {
 // ── MODE SWITCH ───────────────────────────────────────────────────────
 function setMode(m) {
   currentMode = m;
-  ['sc','erg','water','history'].forEach(id => {
+  ['sc','erg','water','wellness','history'].forEach(id => {
     document.getElementById(`page-${id}`).classList.toggle('active', id===m);
     document.getElementById(`tab-${id}`).classList.toggle('active', id===m);
   });
@@ -1139,6 +1265,109 @@ async function loadHistory() {
 
 // Reset history cache when athlete changes
 const _origSelectAthlete = selectAthlete;
+
+
+// ── ONBOARDING ────────────────────────────────────────────────────────
+let onboardYear = null;
+
+function setOnboardYear(yr) {
+  onboardYear = yr;
+  document.querySelectorAll('#onboardOverlay .yr-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+async function checkOnboarding(athlete) {
+  try {
+    const res = await api('athleteProfile', { action: 'get', athlete_id: athlete });
+    if (!res.profile || !res.profile.onboarded) {
+      // Show onboarding
+      document.getElementById('onboardOverlay').classList.remove('hidden');
+    }
+  } catch(e) {
+    // Don't block on error — just skip onboarding
+  }
+}
+
+async function saveOnboarding() {
+  const name = document.getElementById('onboardName').value.trim();
+  const year = document.getElementById('onboardYear').value || onboardYear;
+  if (!name) { showToast('Enter your full name'); return; }
+  if (!year) { showToast('Select your year level'); return; }
+  if (!currentAthlete) { showToast('Select your initials first'); return; }
+
+  const payload = {
+    action: 'save',
+    athlete_id: currentAthlete,
+    full_name: name,
+    year_level: year,
+    height: document.getElementById('onboardHeight').value || null,
+    weight: document.getElementById('onboardWeight').value || null,
+  };
+
+  try {
+    await api('athleteProfile', payload);
+    document.getElementById('onboardOverlay').classList.add('hidden');
+    showToast(`Welcome, ${name.split(' ')[0]}! 🎉`, 3000);
+  } catch(e) {
+    showToast('Error saving — try again');
+  }
+}
+
+// ── WELLNESS ──────────────────────────────────────────────────────────
+const wellnessRatings = { sleep: 0, soreness: 0, motivation: 0 };
+
+function setRating(type, value) {
+  wellnessRatings[type] = value;
+  document.querySelectorAll(`[id^="${type}-"]`).forEach(b => {
+    const n = parseInt(b.id.split('-')[1]);
+    b.classList.toggle('active', n <= value);
+  });
+}
+
+async function submitWellness() {
+  if (!currentAthlete) { showToast('Select your name first'); changeAthlete(); return; }
+  if (!wellnessRatings.sleep || !wellnessRatings.soreness || !wellnessRatings.motivation) {
+    showToast('⚠️ Rate all three categories'); return;
+  }
+
+  const btn = document.getElementById('submitWellnessBtn');
+  btn.disabled = true; btn.textContent = '⏳ Saving…';
+
+  try {
+    const res = await api('submitWellness', {
+      athlete: currentAthlete,
+      sleep: wellnessRatings.sleep,
+      soreness: wellnessRatings.soreness,
+      motivation: wellnessRatings.motivation,
+      notes: document.getElementById('wellnessNotes').value || null,
+    });
+
+    if (res.ok) {
+      document.getElementById('wellnessForm').style.display = 'none';
+      document.getElementById('wellnessSuccess').style.display = 'block';
+      const score = res.readiness_score;
+      const meter = document.getElementById('readinessMeter');
+      meter.textContent = score;
+      meter.style.borderColor = score >= 7 ? '#22c55e' : score >= 5 ? '#f59e0b' : '#e63946';
+      const label = score >= 7 ? 'You're in good shape today 💪' : score >= 5 ? 'Moderate readiness — train smart' : 'Low readiness — take care today';
+      document.getElementById('wellnessScoreMsg').textContent = `Readiness score: ${score}/10 — ${label}`;
+    } else {
+      showToast('❌ Error saving. Try again.');
+    }
+  } catch(e) {
+    showToast('❌ Network error. Try again.');
+  }
+  btn.disabled = false; btn.textContent = 'Submit Check-In ❤️';
+}
+
+function resetWellness() {
+  wellnessRatings.sleep = 0; wellnessRatings.soreness = 0; wellnessRatings.motivation = 0;
+  document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('wellnessNotes').value = '';
+  document.getElementById('wellnessForm').style.display = 'block';
+  document.getElementById('wellnessSuccess').style.display = 'none';
+}
+
 
 init();
 </script>

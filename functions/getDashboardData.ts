@@ -33,7 +33,6 @@ function computeACWR(logs: any[]): { date: string, acute: number, chronic: numbe
   const start = new Date(allDates[0]);
   const end = new Date();
   const points: { date: string, acute: number, chronic: number, acwr: number, dailyLoad: number }[] = [];
-
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split('T')[0];
     const acute = rollingMean(daily, dateStr, 7);
@@ -47,29 +46,18 @@ function computeACWR(logs: any[]): { date: string, acute: number, chronic: numbe
   return points;
 }
 
-// Build exercise progressions: for each exercise, one point per session (avg load + avg rpe)
 function buildExerciseProgressions(logs: any[]): { exercise: string, points: { date: string, avgLoad: number | null, avgRpe: number | null }[] }[] {
-  // Use an ordered map to preserve first-seen order per exercise
   const exerciseOrder: string[] = [];
   const byExercise: Record<string, any[]> = {};
-
-  // Sort logs by timestamp ascending so first-seen order = chronological order
   const sorted = [...logs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
   for (const r of sorted) {
     if (!r.exercise) continue;
-    if (!byExercise[r.exercise]) {
-      byExercise[r.exercise] = [];
-      exerciseOrder.push(r.exercise);
-    }
+    if (!byExercise[r.exercise]) { byExercise[r.exercise] = []; exerciseOrder.push(r.exercise); }
     byExercise[r.exercise].push(r);
   }
-
   return exerciseOrder.map(ex => {
-    const exLogs = byExercise[ex];
-    // Group by date
     const byDate: Record<string, any[]> = {};
-    for (const r of exLogs) {
+    for (const r of byExercise[ex]) {
       const date = r.timestamp?.split('T')[0];
       if (!date) continue;
       if (!byDate[date]) byDate[date] = [];
@@ -88,34 +76,23 @@ function buildExerciseProgressions(logs: any[]): { exercise: string, points: { d
   });
 }
 
-// Build session history: distinct sessions with exercise list in order of first set
 function buildSessionHistory(logs: any[]): any[] {
   const seen = new Set<string>();
   const sessions: any[] = [];
-
-  // Sort logs by timestamp ascending
   const sorted = [...logs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
   for (const r of sorted) {
     const date = r.timestamp?.split('T')[0];
     const key = `${date}|${r.session_type}`;
     if (!seen.has(key)) {
       seen.add(key);
       const sets = logs.filter(l => l.timestamp?.startsWith(date) && l.session_type === r.session_type);
-
-      // Preserve exercise order by first set_number / timestamp
       const exerciseOrder: string[] = [];
       const exSeen = new Set<string>();
       [...sets]
         .sort((a, b) => (a.set_number || 0) - (b.set_number || 0) || new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
         .forEach(s => { if (s.exercise && !exSeen.has(s.exercise)) { exSeen.add(s.exercise); exerciseOrder.push(s.exercise); } });
-
       const rpes = sets.filter(s => s.rpe).map(s => s.rpe);
-      const tl = sets.reduce((a, s) => {
-        const l = parseFloat(s.load);
-        return a + (isNaN(l) ? 0 : l * (s.reps || 1));
-      }, 0);
-
+      const tl = sets.reduce((a, s) => { const l = parseFloat(s.load); return a + (isNaN(l) ? 0 : l * (s.reps || 1)); }, 0);
       sessions.push({
         date,
         session_type: r.session_type,
@@ -126,9 +103,68 @@ function buildSessionHistory(logs: any[]): any[] {
       });
     }
   }
-
-  // Return newest first
   return sessions.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// Detect progressive overload spikes (>10% week-over-week per exercise)
+function detectOverloadFlags(logs: any[]): { athlete: string, exercise: string, prevWeekLoad: number, thisWeekLoad: number, pct: number }[] {
+  const flags: { athlete: string, exercise: string, prevWeekLoad: number, thisWeekLoad: number, pct: number }[] = [];
+  const now = new Date();
+  const thisWeekStart = new Date(now); thisWeekStart.setDate(now.getDate() - 7);
+  const prevWeekStart = new Date(now); prevWeekStart.setDate(now.getDate() - 14);
+
+  const byAthleteExercise: Record<string, Record<string, { thisWeek: number, prevWeek: number }>> = {};
+  for (const r of logs) {
+    const d = new Date(r.timestamp);
+    const load = parseFloat(r.load);
+    if (isNaN(load) || load <= 0 || !r.exercise) continue;
+    const vol = load * (r.reps || 1);
+    if (!byAthleteExercise[r.athlete]) byAthleteExercise[r.athlete] = {};
+    if (!byAthleteExercise[r.athlete][r.exercise]) byAthleteExercise[r.athlete][r.exercise] = { thisWeek: 0, prevWeek: 0 };
+    if (d >= thisWeekStart) byAthleteExercise[r.athlete][r.exercise].thisWeek += vol;
+    else if (d >= prevWeekStart) byAthleteExercise[r.athlete][r.exercise].prevWeek += vol;
+  }
+
+  for (const [athlete, exercises] of Object.entries(byAthleteExercise)) {
+    for (const [exercise, { thisWeek, prevWeek }] of Object.entries(exercises)) {
+      if (prevWeek > 0 && thisWeek > 0) {
+        const pct = Math.round(((thisWeek - prevWeek) / prevWeek) * 100);
+        if (pct > 10) {
+          flags.push({ athlete, exercise, prevWeekLoad: Math.round(prevWeek), thisWeekLoad: Math.round(thisWeek), pct });
+        }
+      }
+    }
+  }
+  return flags.sort((a, b) => b.pct - a.pct);
+}
+
+// Build 28-day squad daily load for calendar view
+function buildSquadLoadCalendar(allLogs: any[]): { date: string, totalLoad: number, athletes: number, sessions: number }[] {
+  const byDate: Record<string, { load: number, athletes: Set<string>, sessions: Set<string> }> = {};
+  for (const r of allLogs) {
+    const date = r.timestamp?.split('T')[0];
+    if (!date) continue;
+    const load = parseFloat(r.load);
+    if (!byDate[date]) byDate[date] = { load: 0, athletes: new Set(), sessions: new Set() };
+    if (!isNaN(load)) byDate[date].load += load * (r.reps || 1);
+    byDate[date].athletes.add(r.athlete);
+    byDate[date].sessions.add(`${r.athlete}|${r.session_type}`);
+  }
+  const now = new Date();
+  const result = [];
+  for (let i = 27; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const date = d.toISOString().split('T')[0];
+    const entry = byDate[date];
+    result.push({
+      date,
+      totalLoad: entry ? Math.round(entry.load) : 0,
+      athletes: entry ? entry.athletes.size : 0,
+      sessions: entry ? entry.sessions.size : 0,
+    });
+  }
+  return result;
 }
 
 Deno.serve(async (req) => {
@@ -137,7 +173,6 @@ Deno.serve(async (req) => {
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
-
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
   try {
@@ -145,7 +180,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { view, athlete } = body;
 
-    const allLogs = await base44.asServiceRole.entities.SessionLog.list();
+    const [allLogs, allWellness] = await Promise.all([
+      base44.asServiceRole.entities.SessionLog.list(),
+      base44.asServiceRole.entities.WellnessCheckIn.list(),
+    ]);
 
     // Group by athlete
     const byAthlete: Record<string, any[]> = {};
@@ -165,9 +203,16 @@ Deno.serve(async (req) => {
       heatmap[ath] = {};
       for (const st of sessionTypes) heatmap[ath][st] = false;
       for (const r of byAthlete[ath]) {
-        if (new Date(r.timestamp) >= week7) {
-          heatmap[ath][r.session_type] = true;
-        }
+        if (new Date(r.timestamp) >= week7) heatmap[ath][r.session_type] = true;
+      }
+    }
+
+    // Wellness — last check-in per athlete
+    const wellnessByAthlete: Record<string, any> = {};
+    for (const w of allWellness) {
+      const ath = w.athlete;
+      if (!wellnessByAthlete[ath] || new Date(w.timestamp) > new Date(wellnessByAthlete[ath].timestamp)) {
+        wellnessByAthlete[ath] = w;
       }
     }
 
@@ -180,49 +225,44 @@ Deno.serve(async (req) => {
       const avgRpe = logs.filter(r => r.rpe).length
         ? parseFloat((logs.reduce((a, r) => a + (r.rpe || 0), 0) / logs.filter(r => r.rpe).length).toFixed(1))
         : null;
-      const highRpeSets = logs.filter(r => r.rpe >= 9).length;
-
-      const sessionCounts: Record<string, number> = {};
-      for (const st of sessionTypes) sessionCounts[st] = 0;
-      for (const r of logs) {
-        if (sessionCounts[r.session_type] !== undefined) sessionCounts[r.session_type]++;
-      }
-
-      const wkLoad = recent.reduce((a, r) => {
-        const l = parseFloat(r.load);
-        return a + (isNaN(l) ? 0 : l * (r.reps || 1));
-      }, 0);
-
+      const wkLoad = recent.reduce((a, r) => { const l = parseFloat(r.load); return a + (isNaN(l) ? 0 : l * (r.reps || 1)); }, 0);
       const lastLog = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       const daysSinceLast = lastLog ? Math.floor((now.getTime() - new Date(lastLog.timestamp).getTime()) / 86400000) : null;
-      const recentTypes = [...new Set(recent.map(r => r.session_type))];
+      const wellness = wellnessByAthlete[ath] || null;
+      const sessionCounts: Record<string, number> = {};
+      for (const st of sessionTypes) sessionCounts[st] = 0;
+      for (const r of logs) { if (sessionCounts[r.session_type] !== undefined) sessionCounts[r.session_type]++; }
 
       return {
         athlete: ath,
         total_sessions: logs.length,
         recent_sessions: recent.length,
         avg_rpe: avgRpe,
-        high_rpe_sets: highRpeSets,
         acwr: latestAcwr?.acwr ?? null,
         acute: latestAcwr?.acute ?? null,
         chronic: latestAcwr?.chronic ?? null,
         weekly_load: Math.round(wkLoad),
         session_counts: sessionCounts,
         days_since_last: daysSinceLast,
-        recent_types: recentTypes,
         acwr_history: acwrData.slice(-28),
         latestACWR: latestAcwr,
+        wellness_readiness: wellness?.readiness_score ?? null,
+        wellness_date: wellness?.timestamp?.slice(0, 10) ?? null,
+        wellness_sleep: wellness?.sleep ?? null,
+        wellness_soreness: wellness?.soreness ?? null,
+        wellness_motivation: wellness?.motivation ?? null,
       };
     });
 
-    // Squad-level stats
+    const squadCalendar = buildSquadLoadCalendar(allLogs);
+    const overloadFlags = detectOverloadFlags(allLogs);
+
     const totalSessions = allLogs.length;
     const activeThisWeek = athletes.filter(a => byAthlete[a].some(r => new Date(r.timestamp) >= week7)).length;
     const allRpes = allLogs.filter(r => r.rpe).map(r => r.rpe);
     const avgSquadRpe = allRpes.length ? parseFloat((allRpes.reduce((a, v) => a + v, 0) / allRpes.length).toFixed(1)) : null;
-    const highRpeSets = allLogs.filter(r => r.rpe >= 9).length;
 
-    // Individual athlete detail — returns flat structure matching what the frontend expects
+    // Individual athlete detail
     let individualDetail = null;
     if (athlete && byAthlete[athlete]) {
       const logs = byAthlete[athlete];
@@ -230,6 +270,9 @@ Deno.serve(async (req) => {
       const latestACWR = acwrData.length ? acwrData[acwrData.length - 1] : null;
       const sessionHistory = buildSessionHistory(logs);
       const exerciseProgressions = buildExerciseProgressions(logs);
+      const athleteWellness = allWellness.filter((w: any) => w.athlete === athlete)
+        .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 14);
 
       individualDetail = {
         athlete,
@@ -238,6 +281,7 @@ Deno.serve(async (req) => {
         latestACWR,
         sessionHistory,
         exerciseProgressions,
+        wellnessSeries: athleteWellness,
       };
     }
 
@@ -250,16 +294,16 @@ Deno.serve(async (req) => {
         active_this_week: activeThisWeek,
         total_athletes: athletes.length,
         avg_rpe: avgSquadRpe,
-        high_rpe_sets: highRpeSets,
       },
       heatmap,
       session_types: sessionTypes,
+      squadCalendar,
+      overloadFlags,
       individual: individualDetail,
-      // Flat spread for athlete view in coach dashboard
       ...(individualDetail || {}),
     }, { status: 200, headers: cors });
 
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ error: error.message }, { status: 500, headers: cors });
   }
 });

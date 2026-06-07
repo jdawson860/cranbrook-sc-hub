@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "properties": {
+    "athlete_id": {
+      "type": "string"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "year_level": {
+      "type": "string"
+    },
+    "height": {
+      "type": "number"
+    },
+    "weight": {
+      "type": "number"
+    },
+    "date_of_birth": {
+      "type": "string"
+    },
+    "position": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "onboarded": {
+      "type": "boolean"
+    }
+  },
+  "required": [],
+  "name": "AthleteProfile"
+}

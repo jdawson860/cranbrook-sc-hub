@@ -227,6 +227,7 @@
   <div style="display:flex;align-items:center;gap:12px">
     <div class="sync-indicator" id="syncIndicator"><div class="sync-dot" id="syncDot"></div><span id="syncText">Checking…</span></div>
     <button class="csv-btn" id="csvBtn" onclick="exportCSV()" style="display:none">⬇ Export CSV</button>
+    <button class="csv-btn" id="pdfBtn" onclick="exportWeeklyPDF()" style="display:none;background:var(--red);margin-left:4px">📄 Weekly Report</button>
   </div>
   <div class="view-toggle">
     <button class="view-btn active" id="btnCoach" onclick="switchView('coach')">Coach</button>
@@ -261,6 +262,22 @@
     </div>
     <div class="modal-stats" id="modalStats"></div>
     <div class="modal-body" id="modalBody"></div>
+    <div class="modal-body" id="modalCoachNotes" style="border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Coach Notes</div>
+      <div id="coachNotesList" style="margin-bottom:12px;font-size:13px;color:var(--muted)">Loading notes…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="coachNoteInput" type="text" placeholder="Add a note (e.g. looked fatigued, great technique)…" style="flex:1;min-width:200px;padding:9px 12px;border:2px solid var(--border);border-radius:8px;font-size:13px;outline:none"/>
+        <select id="coachNoteFlag" style="padding:9px 12px;border:2px solid var(--border);border-radius:8px;font-size:13px;outline:none;cursor:pointer">
+          <option value="none">🏷 Tag</option>
+          <option value="positive">✅ Positive</option>
+          <option value="fatigue">😓 Fatigue</option>
+          <option value="technique">🎯 Technique</option>
+          <option value="injury">🚨 Injury</option>
+          <option value="monitor">👁 Monitor</option>
+        </select>
+        <button onclick="saveCoachNote()" style="padding:9px 16px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">Add Note</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -310,6 +327,7 @@ function switchView(view){
   document.getElementById('btnCoach').classList.toggle('active', view==='coach');
   document.getElementById('btnAthlete').classList.toggle('active', view==='athlete');
   document.getElementById('csvBtn').style.display = view==='coach' ? 'flex' : 'none';
+  document.getElementById('pdfBtn').style.display = view==='coach' ? 'flex' : 'none';
 
   // Show/hide tab bar and athlete selector
   const snav = document.getElementById('subnav');
@@ -375,7 +393,21 @@ function renderCoachView(data){
       <div class="stat-card green"><div class="stat-label">Active This Week</div><div class="stat-value">${squad.active_this_week||0}<span style="font-size:14px;color:var(--muted)">/${squad.total_athletes||0}</span></div><div class="stat-sub">Athletes trained</div></div>
       <div class="stat-card"><div class="stat-label">Total Sets</div><div class="stat-value">${squad.total_sessions||0}</div><div class="stat-sub">All time</div></div>
       <div class="stat-card warn"><div class="stat-label">Avg Squad RPE</div><div class="stat-value">${squad.avg_rpe||'—'}</div><div class="stat-sub">All sets</div></div>
-      <div class="stat-card red"><div class="stat-label">High RPE Sets</div><div class="stat-value">${squad.high_rpe_sets||0}</div><div class="stat-sub">RPE ≥ 9</div></div>
+      <div class="stat-card purple"><div class="stat-label">Overload Flags</div><div class="stat-value" id="overloadCount">—</div><div class="stat-sub">Load spikes >10%</div></div>
+    </div>
+
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Squad Wellness — Today's Readiness</span>
+      <span style="font-size:11px;color:var(--page-muted);font-weight:400">Athletes check in via Athlete Hub</span>
+    </div>
+    <div class="card" id="wellnessPanel">
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:12px">Loading wellness data…</div>
+    </div>
+
+    <div class="section-title">Squad Load Calendar — Last 28 Days</div>
+    <div class="card">
+      <div class="card-title">Daily total volume (kg × reps) across all athletes</div>
+      <div id="squadCalendarWrap" style="overflow-x:auto"></div>
     </div>
 
     <div class="section-title">Session Compliance — This Week</div>
@@ -393,6 +425,14 @@ function renderCoachView(data){
         </tr></thead>
         <tbody id="athleteTableBody"></tbody>
       </table>
+    </div>
+
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>⚠️ Progressive Overload Flags — This Week vs Last Week</span>
+      <span style="font-size:11px;color:var(--page-muted);font-weight:400">Athletes where load increased >10%</span>
+    </div>
+    <div class="card" id="overloadFlagsPanel">
+      <div style="color:var(--muted);text-align:center;padding:12px;font-size:13px">Loading…</div>
     </div>
 
     <div class="section-title">Athlete Comparison</div>
@@ -431,6 +471,15 @@ function renderCoachView(data){
 
   // Compliance heatmap
   renderComplianceHeatmap(sums, athletes, heatmap, sessionTypes);
+
+  // Wellness readiness panel
+  renderWellnessPanel(sums);
+
+  // Squad load calendar
+  renderSquadCalendar(data.squadCalendar || []);
+
+  // Overload flags
+  renderOverloadFlags(data.overloadFlags || []);
 
   // Athlete table
   const tbody = document.getElementById('athleteTableBody');
@@ -474,6 +523,114 @@ function renderCoachView(data){
   renderRpeTrendChart(rpeTrend, sums, athletes);
 
   setTimeout(renderComparison,300);
+}
+
+
+// ── WELLNESS PANEL ────────────────────────────────────────────────────
+function renderWellnessPanel(sums) {
+  const panel = document.getElementById('wellnessPanel');
+  if (!panel) return;
+  const withWellness = sums.filter(a => a.wellness_readiness !== null);
+  if (withWellness.length === 0) {
+    panel.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">No wellness check-ins today — athletes can submit via the Athlete Hub</div>';
+    return;
+  }
+  const readinessColor = (r) => r >= 7 ? '#22c55e' : r >= 5 ? '#f59e0b' : '#e63946';
+  const readinessLabel = (r) => r >= 7 ? 'Good' : r >= 5 ? 'Moderate' : 'Low';
+  panel.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">
+      ${withWellness.map(a => `
+        <div style="background:#f8faff;border-radius:10px;padding:12px;text-align:center;border:2px solid ${readinessColor(a.wellness_readiness)}22">
+          <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:4px">${a.athlete}</div>
+          <div style="font-size:28px;font-weight:900;color:${readinessColor(a.wellness_readiness)}">${a.wellness_readiness}</div>
+          <div style="font-size:11px;font-weight:700;color:${readinessColor(a.wellness_readiness)};margin-bottom:6px">${readinessLabel(a.wellness_readiness)} Readiness</div>
+          <div style="font-size:11px;color:var(--muted);display:flex;gap:8px;justify-content:center">
+            <span>😴${a.wellness_sleep||'—'}</span>
+            <span>💪${a.wellness_soreness||'—'}</span>
+            <span>🔥${a.wellness_motivation||'—'}</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">${a.wellness_date||''}</div>
+        </div>`).join('')}
+    </div>
+  `;
+  // Update overload count badge
+  const countEl = document.getElementById('overloadCount');
+  if (countEl) countEl.textContent = withWellness.length + '/' + sums.length;
+}
+
+// ── SQUAD LOAD CALENDAR ───────────────────────────────────────────────
+function renderSquadCalendar(calData) {
+  const wrap = document.getElementById('squadCalendarWrap');
+  if (!wrap || !calData.length) return;
+  const maxLoad = Math.max(...calData.map(d => d.totalLoad), 1);
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const cellColor = (load) => {
+    if (!load) return '#f0f4f8';
+    const pct = load / maxLoad;
+    if (pct < 0.25) return '#bfdbfe';
+    if (pct < 0.5) return '#60a5fa';
+    if (pct < 0.75) return '#2563eb';
+    return '#1e3a8a';
+  };
+  const textColor = (load) => {
+    if (!load) return '#b0bec5';
+    const pct = load / maxLoad;
+    return pct < 0.25 ? '#1e3a8a' : '#fff';
+  };
+  wrap.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0">
+      ${calData.map(d => {
+        const date = new Date(d.date);
+        const dayName = dayNames[date.getDay()];
+        const dayNum = date.getDate();
+        const mon = date.toLocaleString('default',{month:'short'});
+        const tip = d.totalLoad ? `${d.totalLoad.toLocaleString()}kg · ${d.sessions} sessions · ${d.athletes} athletes` : 'Rest day';
+        return `<div title="${tip}" style="width:60px;border-radius:8px;padding:8px 4px;background:${cellColor(d.totalLoad)};text-align:center;cursor:default">
+          <div style="font-size:9px;font-weight:700;color:${textColor(d.totalLoad)};text-transform:uppercase">${dayName}</div>
+          <div style="font-size:14px;font-weight:800;color:${textColor(d.totalLoad)};margin:2px 0">${dayNum}</div>
+          <div style="font-size:9px;color:${textColor(d.totalLoad)};opacity:.8">${mon}</div>
+          ${d.totalLoad ? `<div style="font-size:9px;font-weight:700;color:${textColor(d.totalLoad)};margin-top:3px">${d.totalLoad>=1000?(d.totalLoad/1000).toFixed(1)+'k':d.totalLoad}</div>` : ''}
+          ${d.athletes ? `<div style="font-size:9px;color:${textColor(d.totalLoad)};opacity:.7">${d.athletes}ath</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:11px;color:var(--muted)">
+      <span>Low</span>
+      ${['#bfdbfe','#60a5fa','#2563eb','#1e3a8a'].map(c=>`<div style="width:20px;height:12px;background:${c};border-radius:3px"></div>`).join('')}
+      <span>High</span>
+    </div>
+  `;
+}
+
+// ── OVERLOAD FLAGS ────────────────────────────────────────────────────
+function renderOverloadFlags(flags) {
+  const panel = document.getElementById('overloadFlagsPanel');
+  if (!panel) return;
+  const countEl = document.getElementById('overloadCount');
+  if (countEl) countEl.textContent = flags.length || '0';
+  if (!flags.length) {
+    panel.innerHTML = '<div style="color:#22c55e;font-size:13px;font-weight:700;text-align:center;padding:16px">✅ No load spikes detected this week — good progressive overload across the squad</div>';
+    return;
+  }
+  panel.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Athlete</th><th>Exercise</th><th>Last Week</th><th>This Week</th><th>Change</th><th>Risk</th></tr></thead>
+      <tbody>
+        ${flags.map(f => {
+          const risk = f.pct > 30 ? 'red' : f.pct > 20 ? 'warn' : 'green';
+          const riskLabel = f.pct > 30 ? '🔴 High' : f.pct > 20 ? '🟡 Moderate' : '🟢 OK';
+          return `<tr>
+            <td><span class="athlete-name">${f.athlete}</span></td>
+            <td style="font-size:12px;font-weight:600">${f.exercise}</td>
+            <td style="color:var(--muted)">${f.prevWeekLoad.toLocaleString()}kg</td>
+            <td style="font-weight:700">${f.thisWeekLoad.toLocaleString()}kg</td>
+            <td><span style="font-weight:800;color:${risk==='red'?'var(--red)':risk==='warn'?'var(--warn)':'var(--green)'}">+${f.pct}%</span></td>
+            <td>${riskLabel}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
 function buildSquadRpeTrend(sums){
@@ -1027,8 +1184,9 @@ function renderAthleteView(data){
 
     <div class="section-title">Session History</div>
     <div class="card">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Click any session to view full set-by-set detail</div>
       <table class="data-table">
-        <thead><tr><th>Date</th><th>Session</th><th>Exercises (in order)</th><th>Sets</th><th>Avg RPE</th><th>Volume</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Session</th><th>Exercises (in order)</th><th>Sets</th><th>Avg RPE</th><th>Volume</th><th>PB?</th><th></th></tr></thead>
         <tbody id="historyBody"></tbody>
       </table>
     </div>
@@ -1102,7 +1260,11 @@ function renderAthleteView(data){
     tr.className='clickable-row';
     tr.onclick=()=>openGymSession(athlete, s.date, s.session_type);
     tr.title='Click to view full session';
-    tr.innerHTML=`<td style="font-weight:600">${s.date}</td><td><span class="session-badge ${cls}">${s.session_type}</span></td><td style="color:var(--muted);font-size:12px">${exList}</td><td style="font-weight:600">${s.totalSets}</td><td><span class="rpe-badge ${rpeClass}">${s.avgRpe||'—'}</span></td><td style="font-size:12px;color:var(--muted)">${s.totalLoad>0?s.totalLoad.toLocaleString()+'kg':'—'}</td><td style="color:var(--accent);font-size:11px;font-weight:600">View →</td>`;
+    // PB detection: check if this session has the highest total load in history
+    const prevSessions = (sessionHistory||[]).filter(ss => ss.date < s.date);
+    const maxPrevLoad = prevSessions.length ? Math.max(...prevSessions.map(ss => ss.totalLoad||0)) : 0;
+    const isPBSession = s.totalLoad > 0 && s.totalLoad > maxPrevLoad && prevSessions.length > 0;
+    tr.innerHTML=`<td style="font-weight:600">${s.date}</td><td><span class="session-badge ${cls}">${s.session_type}</span></td><td style="color:var(--muted);font-size:12px">${exList}</td><td style="font-weight:600">${s.totalSets}</td><td><span class="rpe-badge ${rpeClass}">${s.avgRpe||'—'}</span></td><td style="font-size:12px;color:var(--muted)">${s.totalLoad>0?s.totalLoad.toLocaleString()+'kg':'—'}</td><td>${isPBSession?'<span style="background:#fef3c7;color:#92400e;border-radius:10px;font-size:10px;font-weight:800;padding:2px 7px">🏆 PB</span>':''}</td><td style="color:var(--accent);font-size:11px;font-weight:600">View →</td>`;
     hBody.appendChild(tr);
   });
 
@@ -1140,6 +1302,126 @@ function renderAthleteView(data){
 // ═══════════════════════════════════════════════════
 // SESSION DETAIL MODAL
 // ═══════════════════════════════════════════════════
+
+// ── COACH NOTES ───────────────────────────────────────────────────────
+let _currentNoteContext = { athlete: '', session_date: '', session_type: '' };
+
+async function loadCoachNotes(athlete, session_date, session_type) {
+  _currentNoteContext = { athlete, session_date, session_type };
+  const listEl = document.getElementById('coachNotesList');
+  if (!listEl) return;
+  listEl.textContent = 'Loading…';
+  try {
+    const res = await fetchData('https://superagent-84188511.base44.app/functions/coachNote', { action: 'list', athlete });
+    const notes = res.notes || [];
+    const sessionNotes = notes.filter(n => n.session_date === session_date);
+    const allNotes = notes.slice(0, 5);
+    if (!allNotes.length) {
+      listEl.innerHTML = '<span style="color:var(--muted);font-style:italic">No notes yet for this athlete</span>';
+      return;
+    }
+    const flagColors = { positive: '#22c55e', fatigue: '#f59e0b', technique: '#3b82f6', injury: '#e63946', monitor: '#8b5cf6', none: '#94a3b8' };
+    const flagLabels = { positive: '✅', fatigue: '😓', technique: '🎯', injury: '🚨', monitor: '👁', none: '' };
+    listEl.innerHTML = allNotes.map(n => `
+      <div style="background:#f8faff;border-left:3px solid ${flagColors[n.flag]||'#94a3b8'};padding:8px 12px;border-radius:0 8px 8px 0;margin-bottom:6px">
+        <span style="font-size:11px;color:var(--muted)">${n.session_date} ${flagLabels[n.flag]||''}</span>
+        <div style="font-size:13px;font-weight:600;color:var(--navy);margin-top:2px">${n.note}</div>
+      </div>`).join('');
+  } catch(e) {
+    listEl.textContent = 'Could not load notes';
+  }
+}
+
+async function saveCoachNote() {
+  const input = document.getElementById('coachNoteInput');
+  const flag = document.getElementById('coachNoteFlag').value;
+  const note = input?.value?.trim();
+  if (!note) return;
+  const { athlete, session_date, session_type } = _currentNoteContext;
+  input.disabled = true;
+  try {
+    await fetchData('https://superagent-84188511.base44.app/functions/coachNote', { athlete, session_date, session_type, note, flag });
+    input.value = '';
+    document.getElementById('coachNoteFlag').value = 'none';
+    await loadCoachNotes(athlete, session_date, session_type);
+  } catch(e) { alert('Error saving note'); }
+  input.disabled = false;
+}
+
+// ── PDF EXPORT ─────────────────────────────────────────────────────────
+function exportWeeklyPDF() {
+  // Build HTML report, open in new tab for printing
+  const sums = coachData?.athlete_summaries || [];
+  const flags = coachData?.overloadFlags || [];
+  const squad = coachData?.squad || {};
+  const today = new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'long',year:'numeric'});
+
+  const acwrZone = (v) => !v?'—':v<0.8?'Under-training':v<=1.3?'✅ Optimal':v<=1.5?'⚠️ Caution':'🔴 Danger';
+
+  const reportHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+  <title>Cranbrook S&C Weekly Report — ${today}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:32px;color:#07122b;font-size:13px}
+    h1{font-size:22px;color:#07122b;margin-bottom:4px}
+    h2{font-size:15px;color:#1a56db;margin-top:24px;margin-bottom:8px;border-bottom:2px solid #e5e7eb;padding-bottom:4px}
+    .meta{font-size:12px;color:#5a6a8a;margin-bottom:24px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    th{background:#07122b;color:#fff;padding:8px 10px;text-align:left;font-size:11px}
+    td{padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:12px}
+    tr:nth-child(even) td{background:#f8faff}
+    .flag-red{color:#dc2626;font-weight:700}
+    .flag-warn{color:#d97706;font-weight:700}
+    .flag-ok{color:#16a34a;font-weight:700}
+    .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+    .summary-card{background:#f8faff;border-radius:8px;padding:14px;border-left:4px solid #1a56db;text-align:center}
+    .sv{font-size:24px;font-weight:900;color:#07122b}
+    .sl{font-size:11px;color:#5a6a8a;margin-top:2px}
+    @media print{body{margin:16px}}
+  </style></head><body>
+  <h1>🚣 Cranbrook Rowing — S&C Weekly Report</h1>
+  <div class="meta">Generated ${today} · Prepared by Cranbrook S&C Hub</div>
+
+  <div class="summary-grid">
+    <div class="summary-card"><div class="sv">${squad.active_this_week||0}/${squad.total_athletes||0}</div><div class="sl">Athletes Active</div></div>
+    <div class="summary-card"><div class="sv">${squad.total_sessions||0}</div><div class="sl">Total Sets</div></div>
+    <div class="summary-card"><div class="sv">${squad.avg_rpe||'—'}</div><div class="sl">Avg Squad RPE</div></div>
+    <div class="summary-card"><div class="sv">${flags.length}</div><div class="sl">Load Spikes</div></div>
+  </div>
+
+  <h2>Athlete Summary</h2>
+  <table>
+    <thead><tr><th>Athlete</th><th>Sessions</th><th>This Week</th><th>Avg RPE</th><th>ACWR</th><th>ACWR Zone</th><th>Wk Volume</th></tr></thead>
+    <tbody>
+      ${sums.map(a => `<tr>
+        <td><strong>${a.athlete}</strong></td>
+        <td>${a.total_sessions||0}</td>
+        <td>${a.recent_sessions||0}</td>
+        <td>${a.avg_rpe||'—'}</td>
+        <td>${a.acwr?a.acwr.toFixed(2):'—'}</td>
+        <td class="${a.acwr>1.5?'flag-red':a.acwr>1.3?'flag-warn':'flag-ok'}">${acwrZone(a.acwr)}</td>
+        <td>${a.weekly_load>0?a.weekly_load.toLocaleString()+'kg':'—'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+
+  ${flags.length?`<h2>Load Spike Flags</h2>
+  <table>
+    <thead><tr><th>Athlete</th><th>Exercise</th><th>Last Week</th><th>This Week</th><th>Increase</th></tr></thead>
+    <tbody>
+      ${flags.map(f=>`<tr><td>${f.athlete}</td><td>${f.exercise}</td><td>${f.prevWeekLoad.toLocaleString()}kg</td><td>${f.thisWeekLoad.toLocaleString()}kg</td><td class="${f.pct>30?'flag-red':f.pct>20?'flag-warn':'flag-ok'}">+${f.pct}%</td></tr>`).join('')}
+    </tbody>
+  </table>`:''}
+
+  <div style="margin-top:32px;font-size:11px;color:#5a6a8a;text-align:center">
+    Cranbrook Rowing S&C Hub · Confidential — For Coaching Staff Use Only
+  </div>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(reportHtml);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+}
 
 function closeSessionModal(){
   document.getElementById('sessionModal').classList.add('hidden');
@@ -1217,6 +1499,8 @@ async function openGymSession(athlete, date, session_type){
   } catch(e) {
     document.getElementById('modalBody').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
   }
+  // Always load coach notes (even if session detail fails)
+  loadCoachNotes(athlete, date, session_type);
 }
 
 // Open an ERG session detail modal

@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string"
+    },
+    "athlete": {
+      "type": "string"
+    },
+    "sleep": {
+      "type": "number"
+    },
+    "soreness": {
+      "type": "number"
+    },
+    "motivation": {
+      "type": "number"
+    },
+    "readiness_score": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "name": "WellnessCheckIn"
+}
