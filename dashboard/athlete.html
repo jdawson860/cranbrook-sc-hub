@@ -138,7 +138,7 @@
 <body>
 
 <!-- ATHLETE SELECTOR OVERLAY -->
-<div class="overlay" id="overlay">
+<div class="overlay hidden" id="overlay">
   <div class="ath-picker">
     <div class="ath-picker-logo"><img src="https://media.base44.com/images/public/6a2139cf1719e3fb84188511/dbd88bf6d_Cranbrooklogo.jpg" alt="Cranbrook" style="width:80px;height:80px;object-fit:contain"/></div>
     <h2>Cranbrook Rowing</h2>
@@ -677,10 +677,14 @@ function init() {
   if (currentAthlete) {
     selectAthlete(currentAthlete, false);
   } else {
-    document.getElementById('overlay').classList.remove('hidden');
+    showAthletePicker();
   }
   loadStoredSession();
   updateErgForm();
+}
+
+function showAthletePicker() {
+  document.getElementById('overlay').classList.remove('hidden');
 }
 
 function buildAthGrid() {
