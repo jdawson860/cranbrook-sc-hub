@@ -286,6 +286,7 @@
         <button class="snav-btn" id="snav-water" onclick="switchTab('water')">🌊 Water</button>
         <button class="snav-btn" id="snav-testing" onclick="switchTab('testing')">📋 Testing</button>
         <button class="snav-btn" id="snav-wellness" onclick="switchTab('wellness')">💚 Wellness</button>
+        <button class="snav-btn" id="snav-compare" onclick="switchTab('compare')">⚖️ Compare</button>
       </div>
       <div class="sidebar-athlete-sel" id="athSelWrap" style="display:none">
         <label>Athlete</label>
@@ -401,6 +402,7 @@ function switchView(view){
     document.getElementById('snav-water').style.display='none';
     document.getElementById('snav-testing').style.display='none';
     document.getElementById('snav-wellness').style.display='none';
+    document.getElementById('snav-compare').style.display='none';
     athWrap.style.display='block';
     loadAthleteView();
   } else {
@@ -409,6 +411,7 @@ function switchView(view){
     document.getElementById('snav-water').style.display='';
     document.getElementById('snav-testing').style.display='';
     document.getElementById('snav-wellness').style.display='';
+    document.getElementById('snav-compare').style.display='';
     athWrap.style.display='none';
     switchTab(currentTab);
   }
@@ -431,6 +434,7 @@ function switchTab(tab){
   else if(tab==='water') loadWaterView();
   else if(tab==='testing') loadTestingView();
   else if(tab==='wellness') loadWellnessView();
+  else if(tab==='compare') loadCompareView();
 }
 
 // ═══════════════════════════════════════════════════
@@ -503,25 +507,6 @@ function renderCoachView(data){
     </div>
     <div class="card" id="overloadFlagsPanel">
       <div style="color:var(--muted);text-align:center;padding:12px;font-size:13px">Loading…</div>
-    </div>
-
-    <div class="section-title">Athlete Comparison</div>
-    <div class="card">
-      <div class="card-title">Compare two athletes on a key exercise</div>
-      <div class="compare-controls">
-        <select class="compare-select" id="compareAth1">${athletes.map(a=>`<option>${a}</option>`).join('')}</select>
-        <span style="color:var(--muted);font-weight:700">vs</span>
-        <select class="compare-select" id="compareAth2">${athletes.map((a,i)=>`<option ${i===1?'selected':''}>${a}</option>`).join('')}</select>
-        <select class="compare-select" id="compareExercise">
-          <option>BB BACK SQUAT (HEELS ELEVATED)</option>
-          <option>BENCH PRESS</option><option>BB RDL</option>
-          <option>BENCH PULL</option><option>BB SHOULDER PRESS</option>
-          <option>CHIN UPS</option><option>BB HIGH PULL</option>
-          <option>FRONT FOOT ELEVATED SPLIT SQUAT</option>
-        </select>
-        <button onclick="renderComparison()" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">Compare</button>
-      </div>
-      <canvas id="compareChart" height="80"></canvas>
     </div>
 
     <div class="section-title">Squad ACWR — Acute:Chronic Workload Ratio</div>
@@ -2092,6 +2077,759 @@ function filterWellnessTrend() {
     });
   } else if (chartWrap) {
     chartWrap.style.display = 'none';
+  }
+}
+
+
+// ═══════════════════════════════════════════════════
+// COMPARE VIEW
+// ═══════════════════════════════════════════════════
+
+// Colours for up to 4 athletes
+const COMPARE_COLORS = ['#1a56db','#e63946','#22c55e','#f59e0b'];
+const COMPARE_COLORS_BG = ['rgba(26,86,219,.12)','rgba(230,57,70,.12)','rgba(34,197,94,.12)','rgba(245,158,11,.12)'];
+
+let _compareSquadData = null; // cached SC data
+let _compareErgData   = null;
+let _compareWaterData = null;
+let _compareTestData  = null;
+
+async function loadCompareView() {
+  destroyCharts();
+  const el = document.getElementById('mainContent');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading comparison data…</div>';
+
+  try {
+    // Fetch all data sources in parallel
+    const [scRaw, ergRaw, waterRaw, testRaw] = await Promise.all([
+      fetch(API_SC,    { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' }).then(r=>r.json()),
+      fetch(API_ERG,   { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' }).then(r=>r.json()),
+      fetch(API_WATER, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' }).then(r=>r.json()),
+      fetch(API_TEST,  { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' }).then(r=>r.json()),
+    ]);
+    _compareSquadData = scRaw;
+    _compareErgData   = ergRaw;
+    _compareWaterData = waterRaw;
+    _compareTestData  = testRaw;
+
+    const athletes = (scRaw.athletes || []);
+    const makeAthOpts = (selectedIdx) => athletes.map((a,i) =>
+      `<option value="${a}" ${i===selectedIdx?'selected':''}>${a}</option>`
+    ).join('');
+
+    const today = new Date().toISOString().slice(0,10);
+    const d28 = new Date(); d28.setDate(d28.getDate()-28);
+    const defaultFrom = d28.toISOString().slice(0,10);
+
+    el.innerHTML = `
+      <!-- ── ATHLETE SELECTORS ── -->
+      <div class="section-title">SELECT ATHLETES TO COMPARE (UP TO 4)</div>
+      <div class="card" style="padding:18px 20px;margin-bottom:20px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end">
+          ${[0,1,2,3].map(i => `
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${COMPARE_COLORS[i]};margin-right:4px"></span>Athlete ${i+1}
+            </div>
+            <select id="cmpAth${i}" style="width:100%;padding:9px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none;cursor:pointer;background:#fff">
+              <option value="">— None —</option>
+              ${makeAthOpts(i < athletes.length ? i : -1)}
+            </select>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- ── MODE TABS ── -->
+      <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">
+        ${[
+          ['sc-exercise','💪 S&C Exercise'],
+          ['sc-totals',  '📊 S&C Totals'],
+          ['erg',        '🚣 Erg'],
+          ['water',      '🌊 Water'],
+          ['testing',    '📋 Testing'],
+        ].map(([k,l]) => `<button id="cmpMode_${k}" class="cmp-mode-btn ${k==='sc-exercise'?'active':''}" onclick="setCmpMode('${k}')">${l}</button>`).join('')}
+      </div>
+
+      <!-- ── CONTROLS (change by mode) ── -->
+      <div id="cmpControls" style="margin-bottom:18px"></div>
+
+      <!-- ── OUTPUT ── -->
+      <div id="cmpOutput"></div>
+    `;
+
+    // Init mode
+    setCmpMode('sc-exercise');
+
+  } catch(e) {
+    document.getElementById('mainContent').innerHTML =
+      `<div style="text-align:center;padding:60px;color:#e63946">Failed to load: ${e.message}</div>`;
+  }
+}
+
+// Inject CSS once
+(function injectCompareCss(){
+  if (document.getElementById('cmp-css')) return;
+  const s = document.createElement('style');
+  s.id = 'cmp-css';
+  s.textContent = `
+    .cmp-mode-btn{padding:9px 18px;border:2px solid #e2e8f0;border-radius:20px;background:#fff;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+    .cmp-mode-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .cmp-stat-card{background:#fff;border-radius:12px;padding:14px 16px;border-left:4px solid #ccc;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    .cmp-table{width:100%;border-collapse:collapse;font-size:13px}
+    .cmp-table th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);padding:8px 12px;border-bottom:2px solid var(--border);text-align:left}
+    .cmp-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+    .cmp-table tr:last-child td{border-bottom:none}
+    .cmp-ath-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;flex-shrink:0}
+    .cmp-best{font-weight:800}
+    .cmp-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px}
+  `;
+  document.head.appendChild(s);
+})();
+
+function setCmpMode(mode) {
+  document.querySelectorAll('.cmp-mode-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`cmpMode_${mode}`);
+  if (btn) btn.classList.add('active');
+
+  const ctrl = document.getElementById('cmpControls');
+  const out  = document.getElementById('cmpOutput');
+  if (!ctrl || !out) return;
+  out.innerHTML = '';
+
+  const today = new Date().toISOString().slice(0,10);
+  const d28 = new Date(); d28.setDate(d28.getDate()-28);
+  const defaultFrom = d28.toISOString().slice(0,10);
+
+  if (mode === 'sc-exercise') {
+    const exercises = [
+      'BB BACK SQUAT (HEELS ELEVATED)','BENCH PRESS','BB RDL','BENCH PULL',
+      'BB SHOULDER PRESS','CHIN UPS','BB HIGH PULL','FRONT FOOT ELEVATED SPLIT SQUAT',
+      'GHD HOLD','BB HEX BAR DEADLIFT','NORDIC HAMSTRING CURL','SINGLE LEG PRESS',
+    ];
+    ctrl.innerHTML = `
+      <div class="card" style="padding:16px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Exercise</div>
+          <select id="cmpExercise" style="padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none;min-width:280px">
+            ${exercises.map(e=>`<option>${e}</option>`).join('')}
+          </select>
+        </div>
+        <div style="align-self:flex-end">
+          <button onclick="runCmpScExercise()" style="padding:9px 20px;background:var(--red);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">Compare →</button>
+        </div>
+      </div>`;
+    runCmpScExercise();
+
+  } else if (mode === 'sc-totals') {
+    ctrl.innerHTML = `
+      <div class="card" style="padding:16px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">From</div>
+          <input type="date" id="cmpFrom" value="${defaultFrom}" style="padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">To</div>
+          <input type="date" id="cmpTo" value="${today}" style="padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Session Type</div>
+          <select id="cmpSessionType" style="padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none">
+            <option value="">All Sessions</option>
+            <option>Lower A</option><option>Lower B</option><option>Upper A</option><option>Upper B</option>
+          </select>
+        </div>
+        <div style="align-self:flex-end">
+          <button onclick="runCmpScTotals()" style="padding:9px 20px;background:var(--red);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">Compare →</button>
+        </div>
+      </div>`;
+    runCmpScTotals();
+
+  } else if (mode === 'erg') {
+    ctrl.innerHTML = `
+      <div class="card" style="padding:16px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">From</div>
+          <input type="date" id="cmpFrom" value="${defaultFrom}" style="padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">To</div>
+          <input type="date" id="cmpTo" value="${today}" style="padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none">
+        </div>
+        <div style="align-self:flex-end">
+          <button onclick="runCmpErg()" style="padding:9px 20px;background:var(--red);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">Compare →</button>
+        </div>
+      </div>`;
+    runCmpErg();
+
+  } else if (mode === 'water') {
+    ctrl.innerHTML = `
+      <div class="card" style="padding:16px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">From</div>
+          <input type="date" id="cmpFrom" value="${defaultFrom}" style="padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">To</div>
+          <input type="date" id="cmpTo" value="${today}" style="padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;outline:none">
+        </div>
+        <div style="align-self:flex-end">
+          <button onclick="runCmpWater()" style="padding:9px 20px;background:var(--red);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">Compare →</button>
+        </div>
+      </div>`;
+    runCmpWater();
+
+  } else if (mode === 'testing') {
+    ctrl.innerHTML = `<div class="card" style="padding:14px 20px;font-size:13px;color:var(--muted)">Showing latest testing result per athlete.</div>`;
+    runCmpTesting();
+  }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function getSelectedAthletes() {
+  return [0,1,2,3].map(i => document.getElementById(`cmpAth${i}`)?.value).filter(Boolean);
+}
+
+function splitToSecs(split) {
+  if (!split) return null;
+  const parts = split.replace(/['"]/g,'').split(':');
+  if (parts.length === 2) return parseFloat(parts[0])*60 + parseFloat(parts[1]);
+  return null;
+}
+
+function secsToSplit(s) {
+  if (s == null) return '—';
+  const m = Math.floor(s/60);
+  const sec = (s%60).toFixed(1).padStart(4,'0');
+  return `${m}:${sec}`;
+}
+
+function bestMarker(vals, lowerBetter=false) {
+  // returns index of best value
+  const numeric = vals.map(v => typeof v === 'number' ? v : null);
+  const valid = numeric.filter(v => v !== null);
+  if (!valid.length) return -1;
+  const best = lowerBetter ? Math.min(...valid) : Math.max(...valid);
+  return numeric.indexOf(best);
+}
+
+// ── S&C Exercise Compare ──────────────────────────────────────────────────────
+async function runCmpScExercise() {
+  const athletes = getSelectedAthletes();
+  const exercise = document.getElementById('cmpExercise')?.value;
+  const out = document.getElementById('cmpOutput');
+  if (!athletes.length) { out.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--muted)">Select at least one athlete above.</div>'; return; }
+  out.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div>';
+
+  // Fetch individual data for each athlete
+  const results = await Promise.all(athletes.map(a =>
+    fetch(API_SC, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({view:'athlete',athlete:a}) }).then(r=>r.json())
+  ));
+
+  // Build chart: load over time per athlete
+  const datasets = [];
+  const pbRows = [];
+  const allDates = new Set();
+
+  results.forEach((d, idx) => {
+    const ath = athletes[idx];
+    const ep = (d.exerciseProgressions || []).find(e => e.exercise?.toUpperCase() === exercise.toUpperCase());
+    const pts = ep?.points || [];
+    pts.forEach(p => allDates.add(p.date));
+
+    const pb = pts.length ? Math.max(...pts.map(p => parseFloat(p.avgLoad)||0)) : null;
+    const latest = pts.length ? pts[pts.length-1] : null;
+    pbRows.push({ ath, pb, latestLoad: latest?.avgLoad, latestRpe: latest?.avgRpe, sessions: pts.length });
+
+    datasets.push({
+      label: ath,
+      data: pts.map(p => ({ x: p.date.slice(5), y: parseFloat(p.avgLoad)||null })),
+      borderColor: COMPARE_COLORS[idx],
+      backgroundColor: COMPARE_COLORS_BG[idx],
+      fill: false, tension: .35, pointRadius: 4, borderWidth: 2.5, spanGaps: true,
+    });
+  });
+
+  const sortedDates = [...allDates].sort();
+  const bestPbIdx = bestMarker(pbRows.map(r => r.pb));
+
+  // Stat cards
+  let statCards = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:20px">`;
+  pbRows.forEach((r, i) => {
+    statCards += `<div class="cmp-stat-card" style="border-left-color:${COMPARE_COLORS[i]}">
+      <div style="font-size:11px;font-weight:700;color:${COMPARE_COLORS[i]};margin-bottom:4px">
+        <span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${r.ath}
+      </div>
+      <div style="font-size:22px;font-weight:800;color:var(--navy)">${r.pb != null ? r.pb+'kg' : '—'}${i===bestPbIdx?'<span class="cmp-badge" style="background:#fef3c7;color:#d97706">🏆 PB</span>':''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">Best load · ${r.sessions} sessions</div>
+      <div style="font-size:12px;margin-top:4px">Latest: <strong>${r.latestLoad ?? '—'}kg</strong> · RPE ${r.latestRpe ?? '—'}</div>
+    </div>`;
+  });
+  statCards += '</div>';
+
+  // Chart
+  if (charts['cmpChart']) { charts['cmpChart'].destroy(); delete charts['cmpChart']; }
+
+  out.innerHTML = statCards + `
+    <div class="section-title">${exercise} — LOAD PROGRESSION</div>
+    <div class="card" style="padding:20px;margin-bottom:20px">
+      <canvas id="cmpChartCanvas" height="90"></canvas>
+    </div>
+    <div class="section-title">SESSION DETAIL</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="cmp-table">
+        <thead><tr>
+          <th>Athlete</th><th>PB Load</th><th>Latest Load</th><th>Latest RPE</th><th>Sessions Logged</th>
+        </tr></thead>
+        <tbody>
+          ${pbRows.map((r,i) => `<tr>
+            <td><span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span><strong>${r.ath}</strong></td>
+            <td class="${i===bestPbIdx?'cmp-best':''}">${r.pb!=null?r.pb+'kg':'—'}${i===bestPbIdx?' 🏆':''}</td>
+            <td>${r.latestLoad!=null?r.latestLoad+'kg':'—'}</td>
+            <td>${r.latestRpe??'—'}</td>
+            <td>${r.sessions}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  const ctx = document.getElementById('cmpChartCanvas')?.getContext('2d');
+  if (ctx) {
+    charts['cmpChart'] = new Chart(ctx, {
+      type: 'line',
+      data: { datasets },
+      options: {
+        responsive: true,
+        interaction: { mode:'index', intersect:false },
+        plugins: { legend: { labels: { color:'#8fa0be', boxWidth:12 } } },
+        scales: {
+          y: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8fa0be'}, title:{display:true,text:'Load (kg)',color:'#8fa0be'} },
+          x: { type:'category', grid:{display:false}, ticks:{color:'#8fa0be'} }
+        }
+      }
+    });
+  }
+}
+
+// ── S&C Totals Compare ───────────────────────────────────────────────────────
+async function runCmpScTotals() {
+  const athletes = getSelectedAthletes();
+  const from = document.getElementById('cmpFrom')?.value;
+  const to   = document.getElementById('cmpTo')?.value;
+  const sessionType = document.getElementById('cmpSessionType')?.value;
+  const out  = document.getElementById('cmpOutput');
+  if (!athletes.length) { out.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--muted)">Select at least one athlete above.</div>'; return; }
+  out.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div>';
+
+  const results = await Promise.all(athletes.map(a =>
+    fetch(API_SC, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({view:'athlete',athlete:a}) }).then(r=>r.json())
+  ));
+
+  const summaries = results.map((d, idx) => {
+    const ath = athletes[idx];
+    let logs = d.logs || [];
+    if (from) logs = logs.filter(l => l.timestamp >= from);
+    if (to)   logs = logs.filter(l => l.timestamp <= to + 'T23:59:59');
+    if (sessionType) logs = logs.filter(l => l.session_type === sessionType);
+
+    const sessions = new Set(logs.map(l => l.timestamp?.slice(0,10)+'_'+l.session_type)).size;
+    const totalSets = logs.length;
+    const totalReps = logs.reduce((a,l) => a + (parseFloat(l.reps)||0), 0);
+    const totalLoad = logs.reduce((a,l) => {
+      const load = parseFloat(l.load); return a + (isNaN(load) ? 0 : load * (parseFloat(l.reps)||1));
+    }, 0);
+    const avgRpe = logs.length ? (logs.reduce((a,l)=>a+(parseFloat(l.rpe)||0),0)/logs.length).toFixed(1) : null;
+    const avgLoad = logs.length ? (logs.reduce((a,l)=>a+(parseFloat(l.load)||0),0)/logs.filter(l=>l.load&&l.load!=='BW').length||0).toFixed(1) : null;
+
+    return { ath, sessions, totalSets, totalReps, totalLoad: Math.round(totalLoad), avgRpe, avgLoad };
+  });
+
+  const metrics = [
+    { key:'sessions', label:'Sessions', lowerBetter:false, suffix:'' },
+    { key:'totalSets', label:'Total Sets', lowerBetter:false, suffix:'' },
+    { key:'totalReps', label:'Total Reps', lowerBetter:false, suffix:'' },
+    { key:'totalLoad', label:'Volume Load (kg)', lowerBetter:false, suffix:'kg' },
+    { key:'avgLoad', label:'Avg Load (kg)', lowerBetter:false, suffix:'kg' },
+    { key:'avgRpe', label:'Avg RPE', lowerBetter:false, suffix:'' },
+  ];
+
+  // Stat cards
+  let statCards = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:20px">`;
+  summaries.forEach((s, i) => {
+    statCards += `<div class="cmp-stat-card" style="border-left-color:${COMPARE_COLORS[i]}">
+      <div style="font-size:11px;font-weight:700;color:${COMPARE_COLORS[i]};margin-bottom:4px">
+        <span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}
+      </div>
+      <div style="font-size:22px;font-weight:800;color:var(--navy)">${s.sessions}</div>
+      <div style="font-size:11px;color:var(--muted)">sessions · ${s.totalSets} sets</div>
+      <div style="font-size:12px;margin-top:4px">Vol: <strong>${s.totalLoad.toLocaleString()}kg</strong> · RPE ${s.avgRpe??'—'}</div>
+    </div>`;
+  });
+  statCards += '</div>';
+
+  // Comparison table
+  let tableHTML = `<table class="cmp-table"><thead><tr><th>Metric</th>${summaries.map((s,i)=>`<th><span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}</th>`).join('')}</tr></thead><tbody>`;
+  metrics.forEach(m => {
+    const vals = summaries.map(s => parseFloat(s[m.key])||0);
+    const bestIdx = bestMarker(vals, m.lowerBetter);
+    tableHTML += `<tr><td style="font-weight:700;color:var(--navy)">${m.label}</td>`;
+    summaries.forEach((s, i) => {
+      const val = s[m.key];
+      const isBest = i === bestIdx;
+      tableHTML += `<td class="${isBest?'cmp-best':''}" style="${isBest?'color:var(--navy)':''}">${val!=null?val+(m.suffix?m.suffix:''):''} ${isBest?'🏆':''}</td>`;
+    });
+    tableHTML += '</tr>';
+  });
+  tableHTML += '</tbody></table>';
+
+  // Bar chart: volume load
+  if (charts['cmpChart']) { charts['cmpChart'].destroy(); delete charts['cmpChart']; }
+
+  const rangeLabel = from && to ? `${from} → ${to}` : 'All time';
+  out.innerHTML = statCards + `
+    <div class="section-title">VOLUME LOAD COMPARISON — ${rangeLabel}${sessionType?' · '+sessionType:''}</div>
+    <div class="card" style="padding:20px;margin-bottom:20px">
+      <canvas id="cmpChartCanvas" height="70"></canvas>
+    </div>
+    <div class="section-title">FULL BREAKDOWN</div>
+    <div class="card" style="padding:0;overflow:hidden">${tableHTML}</div>`;
+
+  const ctx = document.getElementById('cmpChartCanvas')?.getContext('2d');
+  if (ctx) {
+    charts['cmpChart'] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Sessions','Total Sets','Total Reps','Volume Load (÷10)','Avg RPE ×10'],
+        datasets: summaries.map((s,i) => ({
+          label: s.ath,
+          data: [s.sessions, s.totalSets, s.totalReps, Math.round(s.totalLoad/10), Math.round((parseFloat(s.avgRpe)||0)*10)],
+          backgroundColor: COMPARE_COLORS_BG[i],
+          borderColor: COMPARE_COLORS[i],
+          borderWidth: 2, borderRadius: 6,
+        }))
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color:'#8fa0be', boxWidth:12 } } },
+        scales: {
+          y: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8fa0be'} },
+          x: { grid:{display:false}, ticks:{color:'#8fa0be'} }
+        }
+      }
+    });
+  }
+}
+
+// ── Erg Compare ──────────────────────────────────────────────────────────────
+async function runCmpErg() {
+  const athletes = getSelectedAthletes();
+  const from = document.getElementById('cmpFrom')?.value;
+  const to   = document.getElementById('cmpTo')?.value;
+  const out  = document.getElementById('cmpOutput');
+  if (!athletes.length) { out.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--muted)">Select at least one athlete above.</div>'; return; }
+  out.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div>';
+
+  const data = _compareErgData;
+  const allSessions = data?.sessions || [];
+
+  const summaries = athletes.map((ath, idx) => {
+    let sessions = allSessions.filter(s => s.athlete === ath);
+    if (from) sessions = sessions.filter(s => (s.timestamp||'') >= from);
+    if (to)   sessions = sessions.filter(s => (s.timestamp||'') <= to + 'T23:59:59');
+
+    const totalDist = sessions.reduce((a,s) => a+(parseFloat(s.total_distance)||0), 0);
+    const totalSess = sessions.length;
+
+    // Best split (lowest = best)
+    const splitsRaw = sessions.map(s => ({ raw: s.avg_split, secs: splitToSecs(s.avg_split) })).filter(s => s.secs);
+    const bestSplit = splitsRaw.length ? splitsRaw.reduce((a,b) => a.secs < b.secs ? a : b) : null;
+    const avgSplitSecs = splitsRaw.length ? splitsRaw.reduce((a,b) => a + b.secs, 0) / splitsRaw.length : null;
+
+    // PBs by distance key
+    const pbMap = {};
+    sessions.forEach(s => {
+      const dist = s.total_distance;
+      if (!dist) return;
+      const split = splitToSecs(s.avg_split);
+      if (!split) return;
+      if (!pbMap[dist] || split < pbMap[dist].secs) pbMap[dist] = { secs: split, raw: s.avg_split, date: s.timestamp?.slice(0,10) };
+    });
+
+    return { ath, totalSess, totalDist: Math.round(totalDist), bestSplit: bestSplit?.raw, bestSplitSecs: bestSplit?.secs,
+             avgSplit: avgSplitSecs ? secsToSplit(avgSplitSecs) : null, pbMap };
+  });
+
+  const bestDistIdx  = bestMarker(summaries.map(s => s.totalDist));
+  const bestSplitIdx = bestMarker(summaries.map(s => s.bestSplitSecs != null ? -s.bestSplitSecs : null)); // lower split = better → negate
+
+  // Stat cards
+  let statCards = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:20px">`;
+  summaries.forEach((s, i) => {
+    statCards += `<div class="cmp-stat-card" style="border-left-color:${COMPARE_COLORS[i]}">
+      <div style="font-size:11px;font-weight:700;color:${COMPARE_COLORS[i]};margin-bottom:4px">
+        <span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}
+      </div>
+      <div style="font-size:22px;font-weight:800;color:var(--navy)">${s.totalDist.toLocaleString()}m</div>
+      <div style="font-size:11px;color:var(--muted)">${s.totalSess} sessions</div>
+      <div style="font-size:12px;margin-top:4px">Best split: <strong style="font-family:monospace">${s.bestSplit??'—'}</strong></div>
+      <div style="font-size:12px">Avg split: <strong style="font-family:monospace">${s.avgSplit??'—'}</strong></div>
+    </div>`;
+  });
+  statCards += '</div>';
+
+  // PB table across common distances
+  const allDistances = [...new Set(summaries.flatMap(s => Object.keys(s.pbMap).map(Number)))].sort((a,b)=>a-b);
+  let pbTableHTML = '';
+  if (allDistances.length) {
+    pbTableHTML = `<div class="section-title">TIME TRIAL PBs BY DISTANCE</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px">
+      <table class="cmp-table">
+        <thead><tr><th>Distance</th>${summaries.map((s,i)=>`<th><span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${allDistances.map(dist => {
+            const vals = summaries.map(s => s.pbMap[dist]?.secs ?? null);
+            const bestIdx = vals.indexOf(Math.min(...vals.filter(v=>v!==null)));
+            return `<tr><td style="font-weight:700">${dist>=1000?(dist/1000)+'k':dist+'m'}</td>${summaries.map((s,i) => {
+              const pb = s.pbMap[dist];
+              return `<td class="${i===bestIdx&&pb?'cmp-best':''}" style="font-family:monospace">${pb ? pb.raw + (i===bestIdx?' 🏆':'') : '—'}</td>`;
+            }).join('')}</tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  // Distance trend chart
+  if (charts['cmpChart']) { charts['cmpChart'].destroy(); delete charts['cmpChart']; }
+
+  out.innerHTML = statCards + pbTableHTML + `
+    <div class="section-title">TOTAL DISTANCE COMPARISON</div>
+    <div class="card" style="padding:20px;margin-bottom:20px">
+      <canvas id="cmpChartCanvas" height="70"></canvas>
+    </div>`;
+
+  const ctx = document.getElementById('cmpChartCanvas')?.getContext('2d');
+  if (ctx) {
+    charts['cmpChart'] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: summaries.map(s => s.ath),
+        datasets: [{
+          label: 'Total Distance (m)',
+          data: summaries.map(s => s.totalDist),
+          backgroundColor: summaries.map((_,i) => COMPARE_COLORS_BG[i]),
+          borderColor: summaries.map((_,i) => COMPARE_COLORS[i]),
+          borderWidth: 2, borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8fa0be'}, title:{display:true,text:'Distance (m)',color:'#8fa0be'} },
+          x: { grid:{display:false}, ticks:{color:'#8fa0be'} }
+        }
+      }
+    });
+  }
+}
+
+// ── Water Compare ────────────────────────────────────────────────────────────
+async function runCmpWater() {
+  const athletes = getSelectedAthletes();
+  const from = document.getElementById('cmpFrom')?.value;
+  const to   = document.getElementById('cmpTo')?.value;
+  const out  = document.getElementById('cmpOutput');
+  if (!athletes.length) { out.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--muted)">Select at least one athlete above.</div>'; return; }
+  out.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div>';
+
+  const allSessions = _compareWaterData?.sessions || [];
+
+  const summaries = athletes.map((ath, idx) => {
+    let sessions = allSessions.filter(s => s.athlete === ath);
+    if (from) sessions = sessions.filter(s => (s.timestamp||'') >= from);
+    if (to)   sessions = sessions.filter(s => (s.timestamp||'') <= to + 'T23:59:59');
+
+    const totalDist  = sessions.reduce((a,s) => a+(parseFloat(s.distance)||0), 0);
+    const totalSess  = sessions.length;
+    const bestSplits = sessions.map(s => ({ secs: splitToSecs(s.avg_split), raw: s.avg_split })).filter(s => s.secs);
+    const bestSplit  = bestSplits.length ? bestSplits.reduce((a,b) => a.secs < b.secs ? a : b) : null;
+    const avgRpe     = sessions.length ? (sessions.reduce((a,s)=>a+(parseFloat(s.rpe)||0),0)/sessions.length).toFixed(1) : null;
+    const avgRating  = sessions.length ? (sessions.reduce((a,s)=>a+(parseFloat(s.rating)||0),0)/sessions.length).toFixed(1) : null;
+
+    return { ath, totalSess, totalDist: Math.round(totalDist), bestSplit: bestSplit?.raw, bestSplitSecs: bestSplit?.secs, avgRpe, avgRating };
+  });
+
+  // Stat cards
+  let statCards = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:20px">`;
+  summaries.forEach((s, i) => {
+    statCards += `<div class="cmp-stat-card" style="border-left-color:${COMPARE_COLORS[i]}">
+      <div style="font-size:11px;font-weight:700;color:${COMPARE_COLORS[i]};margin-bottom:4px">
+        <span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}
+      </div>
+      <div style="font-size:22px;font-weight:800;color:var(--navy)">${s.totalDist.toLocaleString()}m</div>
+      <div style="font-size:11px;color:var(--muted)">${s.totalSess} on-water sessions</div>
+      <div style="font-size:12px;margin-top:4px">Best split: <strong style="font-family:monospace">${s.bestSplit??'—'}</strong></div>
+      <div style="font-size:12px">Avg RPE: <strong>${s.avgRpe??'—'}</strong> · Rating: <strong>${s.avgRating??'—'}</strong></div>
+    </div>`;
+  });
+  statCards += '</div>';
+
+  const metrics = [
+    { key:'totalSess', label:'Sessions', suffix:'' },
+    { key:'totalDist', label:'Total Distance', suffix:'m' },
+    { key:'avgRpe', label:'Avg RPE', suffix:'' },
+    { key:'avgRating', label:'Avg Rating', suffix:'/10' },
+  ];
+
+  let tableHTML = `<table class="cmp-table"><thead><tr><th>Metric</th>${summaries.map((s,i)=>`<th><span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}</th>`).join('')}</tr></thead><tbody>`;
+  metrics.forEach(m => {
+    const vals = summaries.map(s => parseFloat(s[m.key])||0);
+    const bestIdx = bestMarker(vals, false);
+    tableHTML += `<tr><td style="font-weight:700;color:var(--navy)">${m.label}</td>`;
+    summaries.forEach((s, i) => {
+      const val = s[m.key];
+      tableHTML += `<td class="${i===bestIdx?'cmp-best':''}">${val!=null?val+m.suffix:'—'}${i===bestIdx?' 🏆':''}</td>`;
+    });
+    tableHTML += '</tr>';
+  });
+  tableHTML += '</tbody></table>';
+
+  if (charts['cmpChart']) { charts['cmpChart'].destroy(); delete charts['cmpChart']; }
+  out.innerHTML = statCards + `
+    <div class="section-title">ON-WATER COMPARISON</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px">${tableHTML}</div>
+    <div class="card" style="padding:20px">
+      <canvas id="cmpChartCanvas" height="70"></canvas>
+    </div>`;
+
+  const ctx = document.getElementById('cmpChartCanvas')?.getContext('2d');
+  if (ctx) {
+    charts['cmpChart'] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: summaries.map(s => s.ath),
+        datasets: [{
+          label: 'Total Distance (m)',
+          data: summaries.map(s => s.totalDist),
+          backgroundColor: summaries.map((_,i) => COMPARE_COLORS_BG[i]),
+          borderColor: summaries.map((_,i) => COMPARE_COLORS[i]),
+          borderWidth: 2, borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true, plugins: { legend: { display:false } },
+        scales: {
+          y: { ticks:{color:'#8fa0be'}, grid:{color:'rgba(255,255,255,.05)'}, title:{display:true,text:'Distance (m)',color:'#8fa0be'} },
+          x: { ticks:{color:'#8fa0be'}, grid:{display:false} }
+        }
+      }
+    });
+  }
+}
+
+// ── Testing Compare ──────────────────────────────────────────────────────────
+async function runCmpTesting() {
+  const athletes = getSelectedAthletes();
+  const out = document.getElementById('cmpOutput');
+  if (!athletes.length) { out.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--muted)">Select at least one athlete above.</div>'; return; }
+  out.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div>';
+
+  const data = _compareTestData;
+  const allResults = data?.results || [];
+
+  // Latest result per athlete
+  const summaries = athletes.map((ath, idx) => {
+    const athResults = allResults.filter(r =>
+      (r.athlete_name && r.athlete_name.toLowerCase().includes(ath.toLowerCase())) ||
+      (r.athlete_first && `${r.athlete_first} ${r.athlete_last}`.toLowerCase().includes(ath.toLowerCase()))
+    ).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const latest = athResults[0] || null;
+    return {
+      ath,
+      latest,
+      date: latest?.timestamp?.slice(0,10) ?? '—',
+      height: latest?.height ?? null,
+      weight: latest?.weight ?? null,
+      hollow_hold: latest?.hollow_hold ?? null,
+      prone_plank: latest?.prone_plank ?? null,
+      side_plank_l: latest?.side_plank_left ?? null,
+      side_plank_r: latest?.side_plank_right ?? null,
+    };
+  });
+
+  const metrics = [
+    { key:'height', label:'Height (cm)', lowerBetter:false },
+    { key:'weight', label:'Weight (kg)', lowerBetter:false },
+    { key:'hollow_hold', label:'Hollow Hold (s)', lowerBetter:false },
+    { key:'prone_plank', label:'Prone Plank (s)', lowerBetter:false },
+    { key:'side_plank_l', label:'Side Plank Left (s)', lowerBetter:false },
+    { key:'side_plank_r', label:'Side Plank Right (s)', lowerBetter:false },
+  ];
+
+  // Stat cards
+  let statCards = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:20px">`;
+  summaries.forEach((s, i) => {
+    const hollowBest = bestMarker(summaries.map(x => x.hollow_hold)) === i;
+    statCards += `<div class="cmp-stat-card" style="border-left-color:${COMPARE_COLORS[i]}">
+      <div style="font-size:11px;font-weight:700;color:${COMPARE_COLORS[i]};margin-bottom:4px">
+        <span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}
+      </div>
+      <div style="font-size:20px;font-weight:800;color:var(--navy)">${s.hollow_hold!=null?s.hollow_hold+'s':'No data'}</div>
+      <div style="font-size:11px;color:var(--muted)">Hollow hold · ${s.date}</div>
+      <div style="font-size:12px;margin-top:4px">${s.height!=null?s.height+'cm':'—'} · ${s.weight!=null?s.weight+'kg':'—'}</div>
+    </div>`;
+  });
+  statCards += '</div>';
+
+  let tableHTML = `<table class="cmp-table"><thead><tr><th>Test</th>${summaries.map((s,i)=>`<th><span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}</th>`).join('')}</tr></thead><tbody>`;
+  metrics.forEach(m => {
+    const vals = summaries.map(s => parseFloat(s[m.key])||null);
+    const valid = vals.filter(v=>v!==null);
+    const bestVal = valid.length ? (m.lowerBetter ? Math.min(...valid) : Math.max(...valid)) : null;
+    const bestIdx = vals.indexOf(bestVal);
+    tableHTML += `<tr><td style="font-weight:700;color:var(--navy)">${m.label}</td>`;
+    summaries.forEach((s, i) => {
+      const val = s[m.key];
+      tableHTML += `<td class="${i===bestIdx&&val!=null?'cmp-best':''}">${val!=null?val:' — '}${i===bestIdx&&val!=null?' 🏆':''}</td>`;
+    });
+    tableHTML += '</tr>';
+  });
+  tableHTML += `</tbody></table>`;
+
+  // Bar chart: plank scores
+  if (charts['cmpChart']) { charts['cmpChart'].destroy(); delete charts['cmpChart']; }
+
+  out.innerHTML = statCards + `
+    <div class="section-title">TESTING RESULTS — LATEST PER ATHLETE</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px">${tableHTML}</div>
+    <div class="section-title">CORE TESTING CHART</div>
+    <div class="card" style="padding:20px">
+      <canvas id="cmpChartCanvas" height="80"></canvas>
+    </div>`;
+
+  const ctx = document.getElementById('cmpChartCanvas')?.getContext('2d');
+  if (ctx && summaries.some(s => s.hollow_hold != null)) {
+    charts['cmpChart'] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Hollow Hold (s)', 'Prone Plank (s)', 'Side Plank L (s)', 'Side Plank R (s)'],
+        datasets: summaries.map((s, i) => ({
+          label: s.ath,
+          data: [s.hollow_hold, s.prone_plank, s.side_plank_l, s.side_plank_r],
+          backgroundColor: COMPARE_COLORS_BG[i],
+          borderColor: COMPARE_COLORS[i],
+          borderWidth: 2, borderRadius: 6,
+        }))
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color:'#8fa0be', boxWidth:12 } } },
+        scales: {
+          y: { ticks:{color:'#8fa0be'}, grid:{color:'rgba(255,255,255,.05)'}, title:{display:true,text:'Seconds',color:'#8fa0be'} },
+          x: { ticks:{color:'#8fa0be'}, grid:{display:false} }
+        }
+      }
+    });
   }
 }
 
