@@ -1153,12 +1153,12 @@ function readExIntervalRows() {
   const rows = document.getElementById('exIntervalBody')?.children || [];
   const result = [];
   Array.from(rows).forEach((tr, i) => {
-    const n = i + 1;
-    const dist = document.getElementById(`exInt-dist-${n}`)?.value;
-    const time = document.getElementById(`exInt-time-${n}`)?.value;
-    const split = document.getElementById(`exInt-split-${n}`)?.value;
+    const inputs = tr.querySelectorAll('input');
+    const dist = inputs[0]?.value?.trim();
+    const time = inputs[1]?.value?.trim();
+    const split = inputs[2]?.value?.trim();
     if (dist || time || split) {
-      result.push({ interval: n, distance: dist ? parseInt(dist) : null, time: time || null, split: split || null });
+      result.push({ interval: i + 1, distance: dist ? parseInt(dist) : null, time: time || null, split: split || null });
     }
   });
   return result;
