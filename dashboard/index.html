@@ -30,7 +30,7 @@
     /* SUB-NAV */
     .subnav{background:var(--navy2);padding:0 24px;display:flex;align-items:center;gap:4px;border-bottom:1px solid rgba(255,255,255,.07)}
     .snav-btn{padding:12px 16px;border:none;background:transparent;color:#8fa0be;font-size:13px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;display:flex;align-items:center;gap:6px}
-    .snav-btn.active{color:#fff;border-bottom-color:var(--red)}
+    .snav-btn.active{color:#fff;border-bottom-color:transparent}
     .athlete-sel-wrap{margin-left:auto;display:flex;align-items:center;gap:8px}
     .athlete-sel-wrap label{color:#8fa0be;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
     .athlete-select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 12px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;outline:none}
@@ -220,12 +220,40 @@
     .clickable-row{cursor:pointer;transition:background .1s}
     .clickable-row:hover td{background:#eef4ff !important}
 
+  
+    /* SIDEBAR LAYOUT */
+    .layout-wrap{display:flex;flex:1;min-height:0;height:calc(100vh - 64px);position:sticky;top:64px}
+    .sidebar{width:220px;background:#07122b;border-right:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;flex-shrink:0;transition:width .25s cubic-bezier(.4,0,.2,1),transform .25s;overflow:hidden;position:sticky;top:64px;height:calc(100vh - 64px);z-index:50}
+    .sidebar.collapsed{width:0}
+    .sidebar-inner{width:220px;flex-shrink:0;display:flex;flex-direction:column;height:100%}
+    .sidebar-section{padding:20px 0 8px;flex:1}
+    .sidebar-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#4a5a7a;padding:0 20px;margin-bottom:6px}
+    .snav-btn{padding:12px 20px;border:none;background:transparent;color:#8fa0be;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px;width:100%;text-align:left;white-space:nowrap;border-left:3px solid transparent}
+    .snav-btn.active{color:#fff;background:rgba(255,255,255,.07);border-left-color:var(--red)}
+    .snav-btn:hover:not(.active){color:#c8d6f0;background:rgba(255,255,255,.04)}
+    .sidebar-athlete-sel{padding:16px;border-top:1px solid rgba(255,255,255,.07)}
+    .sidebar-athlete-sel label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#4a5a7a;margin-bottom:6px}
+    .sidebar-athlete-sel select{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;outline:none}
+    .sidebar-athlete-sel select option{background:#0d2545}
+    .content-area{flex:1;overflow-y:auto;background:var(--bg)}
+    .sidebar-toggle{background:rgba(255,255,255,.07);border:none;color:#8fa0be;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+    .sidebar-toggle:hover{background:rgba(255,255,255,.13);color:#fff}
+    /* Remove old subnav */
+    .subnav{display:none!important}
+    /* Responsive */
+    @media(max-width:768px){
+      .sidebar{position:fixed;top:64px;left:0;bottom:0;z-index:200;transform:translateX(0)}
+      .sidebar.collapsed{transform:translateX(-220px);width:220px}
+      .sidebar-backdrop{display:block!important}
+    }
+
   </style>
 </head>
 <body>
 
 <header class="header">
   <div class="header-left">
+    <button class="sidebar-toggle" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Toggle menu">☰</button>
     <div class="header-logo"><img src="https://media.base44.com/images/public/6a2139cf1719e3fb84188511/dbd88bf6d_Cranbrooklogo.jpg" alt="Cranbrook School" /></div>
     <div>
       <div class="header-title">Cranbrook Rowing</div>
@@ -243,20 +271,32 @@
   </div>
 </header>
 
-<!-- SUBNAV (tabs + athlete selector) -->
-<div class="subnav" id="subnav">
-  <button class="snav-btn active" id="snav-sc" onclick="switchTab('sc')">💪 S&C</button>
-  <button class="snav-btn" id="snav-erg" onclick="switchTab('erg')">🚣 Erg</button>
-  <button class="snav-btn" id="snav-water" onclick="switchTab('water')">🌊 Water</button>
-  <button class="snav-btn" id="snav-testing" onclick="switchTab('testing')">📋 Testing</button>
-  <div class="athlete-sel-wrap" id="athSelWrap" style="display:none">
-    <label>Athlete</label>
-    <select class="athlete-select" id="athleteSelect" onchange="loadAthleteView()">
-      <option>Loading…</option>
-    </select>
-  </div>
-</div>
+<!-- SIDEBAR BACKDROP (mobile) -->
+<div id="sidebarBackdrop" class="sidebar-backdrop" onclick="toggleSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199"></div>
 
+<!-- LAYOUT -->
+<div class="layout-wrap">
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Views</div>
+        <button class="snav-btn active" id="snav-sc" onclick="switchTab('sc')">💪 S&amp;C</button>
+        <button class="snav-btn" id="snav-erg" onclick="switchTab('erg')">🚣 Erg</button>
+        <button class="snav-btn" id="snav-water" onclick="switchTab('water')">🌊 Water</button>
+        <button class="snav-btn" id="snav-testing" onclick="switchTab('testing')">📋 Testing</button>
+      </div>
+      <div class="sidebar-athlete-sel" id="athSelWrap" style="display:none">
+        <label>Athlete</label>
+        <select id="athleteSelect" onchange="loadAthleteView()">
+          <option>Loading…</option>
+        </select>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CONTENT -->
+  <div class="content-area" id="contentArea">
 
 <!-- SESSION DETAIL MODAL -->
 <div class="modal-overlay hidden" id="sessionModal" onclick="closeModal(event)">
@@ -289,7 +329,7 @@
   </div>
 </div>
 
-<div class="main" id="mainContent">
+<div class="main" id="mainContent" style="max-width:none">
   <div class="loading"><div class="spinner"></div> Loading data…</div>
 </div>
 
@@ -298,6 +338,17 @@ const API_SC    = 'https://superagent-84188511.base44.app/functions/getDashboard
 const API_ERG   = 'https://superagent-84188511.base44.app/functions/getErgData';
 const API_TEST  = 'https://superagent-84188511.base44.app/functions/getTestingData';
 const API_WATER = 'https://superagent-84188511.base44.app/functions/getWaterData';
+
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  const isMobile = window.innerWidth <= 768;
+  sb.classList.toggle('collapsed');
+  if (isMobile && backdrop) {
+    backdrop.style.display = sb.classList.contains('collapsed') ? 'none' : 'block';
+  }
+}
 
 let currentView = 'coach';
 let currentTab  = 'sc';
@@ -347,7 +398,7 @@ function switchView(view){
     document.getElementById('snav-erg').style.display='none';
     document.getElementById('snav-water').style.display='none';
     document.getElementById('snav-testing').style.display='none';
-    athWrap.style.display='flex';
+    athWrap.style.display='block';
     loadAthleteView();
   } else {
     document.getElementById('snav-sc').style.display='';
@@ -365,6 +416,12 @@ function switchTab(tab){
     const el = document.getElementById(`snav-${t}`);
     if(el) el.classList.toggle('active', t===tab);
   });
+  // Auto-close sidebar on mobile
+  if(window.innerWidth <= 768){
+    const sb = document.getElementById('sidebar');
+    const bd = document.getElementById('sidebarBackdrop');
+    if(sb && !sb.classList.contains('collapsed')){ sb.classList.add('collapsed'); if(bd) bd.style.display='none'; }
+  }
   if(tab==='sc') loadCoachView();
   else if(tab==='erg') loadErgView();
   else if(tab==='water') loadWaterView();
@@ -1423,7 +1480,9 @@ function exportWeeklyPDF() {
   <div style="margin-top:32px;font-size:11px;color:#5a6a8a;text-align:center">
     Cranbrook Rowing S&C Hub · Confidential — For Coaching Staff Use Only
   </div>
-  </body></html>`;
+    </div><!-- /content-area -->
+</div><!-- /layout-wrap -->
+</body></html>`;
 
   const win = window.open('', '_blank');
   win.document.write(reportHtml);
