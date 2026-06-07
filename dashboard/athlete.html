@@ -1348,7 +1348,7 @@ async function submitWellness() {
       const meter = document.getElementById('readinessMeter');
       meter.textContent = score;
       meter.style.borderColor = score >= 7 ? '#22c55e' : score >= 5 ? '#f59e0b' : '#e63946';
-      const label = score >= 7 ? 'You're in good shape today 💪' : score >= 5 ? 'Moderate readiness — train smart' : 'Low readiness — take care today';
+      const label = score >= 7 ? "You're in good shape today 💪" : score >= 5 ? "Moderate readiness — train smart" : "Low readiness — take care today";
       document.getElementById('wellnessScoreMsg').textContent = `Readiness score: ${score}/10 — ${label}`;
     } else {
       showToast('❌ Error saving. Try again.');
