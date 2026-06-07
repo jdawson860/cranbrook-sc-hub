@@ -639,28 +639,29 @@ const api = (fn, body) => fetch(`${BASE}/${fn}`, {
 const ATHLETES = ['AF','RR','JC','MA','TL','CC','SK','AS','HM','TD'];
 
 const EXERCISES = {
-  // T2 W7-10 — Lower Body Session 1
+  // T2 W7-10 — Lower Body Session 1 (in program order)
   'Lower A': [
-    'BB Back Squat (Heels Elevated)',
-    'Front Foot Elevated Split Squat',
-    'Eccentric Hamstring Sliders',
-    'GHD Anti-Lateral Flexion Hold',
     'BB High Pull',
-    'Ankle Mobility Dorsiflexion',
     'Hurdle Jump & Stick Landing',
+    'BB Back Squat (Heels Elevated)',
+    'Ankle Mobility Dorsiflexion',
+    'Front Foot Elevated Split Squat',
+    'GHD Anti-Lateral Flexion Hold',
+    'Eccentric Hamstring Sliders',
     'Single Leg Calf Raise on Step',
   ],
-  // T2 W7-10 — Lower Body Session 2
+  // T2 W7-10 — Lower Body Session 2 (in program order)
   'Lower B': [
     'BB RDL',
+    'SB Roll Out + Plank Hold',
     'Leg Press',
-    'Leg Extension',
-    'Single Leg Hip Thrust',
     'Hanging Straight Leg Raise',
+    'Leg Extension',
     'Landmine Rotation',
-    'SB Rollout + Plank Hold',
+    'Single Leg Hip Thrust',
+    'Single Leg Calf Raise on Step',
   ],
-  // T2 W7-10 — Upper Body Session 1
+  // T2 W7-10 — Upper Body Session 1 (in program order)
   'Upper A': [
     'Chin Ups',
     'Bench Press',
@@ -670,19 +671,19 @@ const EXERCISES = {
     'Plate Weighted Sit Ups',
     'Swiss Ball Deadbug',
   ],
-  // T2 W7-10 — Upper Body Session 2
+  // T2 W7-10 — Upper Body Session 2 (in program order)
   'Upper B': [
     'Bench Pull',
+    'Half Kneeling Wall Thoracic Rotation',
     'BB Shoulder Press',
+    'Half Kneeling Banded Cuban Press',
     'DB Lateral Raise',
     'Biceps of Your Choice',
-    'Half Kneeling Banded Cuban Press',
-    'Half Kneeling Wall Thoracic Rotation',
     'Pallof Press ISO Hold',
   ],
 };
 
-const TIME_EXERCISES = ['GHD Hold','Prone Plank','Side Plank','GHD Raise','Hollow Hold'];
+const TIME_EXERCISES = ['GHD Hold','Prone Plank','Side Plank','GHD Raise','Hollow Hold','GHD Anti-Lateral Flexion Hold','SB Roll Out + Plank Hold','Pallof Press ISO Hold','Half Kneeling Wall Thoracic Rotation','Half Kneeling Banded Cuban Press','Ankle Mobility Dorsiflexion','Hurdle Jump & Stick Landing'];
 const BAND_EXERCISES = ['Chin Ups','Pull Up'];
 
 // ── STATE ─────────────────────────────────────────────────────────────

@@ -5,28 +5,29 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // Add/update as new sessions are programmed.
 // Exercises NOT in the list will appear at the end, in DB order.
 const SESSION_EXERCISE_ORDER: Record<string, string[]> = {
-  // T2 W7-10 — Lower Body Session 1
+  // T2 W7-10 — Lower Body Session 1 (exact program order)
   'Lower A': [
-    'BB Back Squat (Heels Elevated)',
-    'Front Foot Elevated Split Squat',
-    'Eccentric Hamstring Sliders',
-    'GHD Anti-Lateral Flexion Hold',
     'BB High Pull',
     'Hurdle Jump & Stick Landing',
+    'BB Back Squat (Heels Elevated)',
     'Ankle Mobility Dorsiflexion',
+    'Front Foot Elevated Split Squat',
+    'GHD Anti-Lateral Flexion Hold',
+    'Eccentric Hamstring Sliders',
     'Single Leg Calf Raise on Step',
   ],
-  // T2 W7-10 — Lower Body Session 2
+  // T2 W7-10 — Lower Body Session 2 (exact program order)
   'Lower B': [
     'BB RDL',
+    'SB Roll Out + Plank Hold',
     'Leg Press',
-    'Leg Extension',
-    'Single Leg Hip Thrust',
     'Hanging Straight Leg Raise',
+    'Leg Extension',
     'Landmine Rotation',
-    'SB Rollout + Plank Hold',
+    'Single Leg Hip Thrust',
+    'Single Leg Calf Raise on Step',
   ],
-  // T2 W7-10 — Upper Body Session 1
+  // T2 W7-10 — Upper Body Session 1 (exact program order)
   'Upper A': [
     'Chin Ups',
     'Bench Press',
@@ -36,14 +37,14 @@ const SESSION_EXERCISE_ORDER: Record<string, string[]> = {
     'Plate Weighted Sit Ups',
     'Swiss Ball Deadbug',
   ],
-  // T2 W7-10 — Upper Body Session 2
+  // T2 W7-10 — Upper Body Session 2 (exact program order)
   'Upper B': [
     'Bench Pull',
+    'Half Kneeling Wall Thoracic Rotation',
     'BB Shoulder Press',
+    'Half Kneeling Banded Cuban Press',
     'DB Lateral Raise',
     'Biceps of Your Choice',
-    'Half Kneeling Banded Cuban Press',
-    'Half Kneeling Wall Thoracic Rotation',
     'Pallof Press ISO Hold',
   ],
 };
