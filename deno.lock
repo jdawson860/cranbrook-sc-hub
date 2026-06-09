@@ -1,0 +1,20 @@
+{
+  "version": "5",
+  "remote": {
+    "https://cdn.jsdelivr.net/npm/@base44/sdk@0.8.31/+esm": "d41dc966343681eb534e7c4abfac657506f79b9bd79fcf226fa5080fc1c8fd85",
+    "https://cdn.jsdelivr.net/npm/@socket.io/component-emitter@3.1.2/+esm": "8e596c07a1ab9a8123f50dcf5c0723153eeed704ed93c8401d0e8b0fa48880a3",
+    "https://cdn.jsdelivr.net/npm/axios@1.16.1/+esm": "7b0c032aaecf3cffa85feedd80fc8ba9c97511c4511d582cfef86ca332eefc9b",
+    "https://cdn.jsdelivr.net/npm/engine.io-client@6.6.4/+esm": "347a24d09f5ed34550db96d96051eaff390a4d04b186b9018192b5c9ec7dcabe",
+    "https://cdn.jsdelivr.net/npm/engine.io-parser@5.2.3/+esm": "b1f058e615f3c08ccff51f063f165a6f7235b5e114f93b4391a545186a27865d",
+    "https://cdn.jsdelivr.net/npm/socket.io-client@4.8.3/+esm": "793e44d62b5aec242f128c9a93cbb7c50f46ebd8a69b525c31188a9fa5ebda62",
+    "https://cdn.jsdelivr.net/npm/socket.io-parser@4.2.5/+esm": "6862d3383bf7c1295a45c945fe605242183fa73ed8315068a0c007ca88602a23",
+    "https://cdn.jsdelivr.net/npm/uuid@13.0.2/+esm": "d0d2cbe3b8cad88e7c5a0421d8f6bf4b8b6fbeb4a356353f09ee31e658e15643"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@base44/sdk@~0.8.31"
+      ]
+    }
+  }
+}
