@@ -2955,7 +2955,15 @@ function renderCPAthlete(ath) {
         y: {
           title: { display: true, text: 'Power (W)', color: '#5a6a8a', font: { weight: '700' } },
           grid: { color: 'rgba(0,0,0,.06)' },
-          ticks: { color: '#5a6a8a', callback: val => val + 'W' }
+          ticks: { color: '#5a6a8a', callback: val => val + 'W' },
+          min: (() => {
+            const allPow = [...measuredPts.map(p => p.y), ...cpCurve.map(p => p.y), CP];
+            return Math.floor((Math.min(...allPow) - 50) / 10) * 10;
+          })(),
+          max: (() => {
+            const allPow = [...measuredPts.map(p => p.y), ...cpCurve.map(p => p.y)];
+            return Math.ceil((Math.max(...allPow) + 50) / 10) * 10;
+          })()
         }
       }
     }
