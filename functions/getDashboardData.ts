@@ -1,29 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-const APP_ID = "6a2139cf1719e3fb84188511";
-const BASE_URL = `https://api.base44.com/api/apps/${APP_ID}/entities`;
-
-async function fetchAllRecords(entity: string, serviceToken: string): Promise<any[]> {
-  const records: any[] = [];
-  let skip = 0;
-  const limit = 500;
-  while (true) {
-    const res = await fetch(`${BASE_URL}/${entity}/?limit=${limit}&skip=${skip}`, {
-      headers: {
-        'Authorization': `Bearer ${serviceToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!res.ok) break;
-    const data = await res.json();
-    const items = Array.isArray(data) ? data : (data.records || data.items || []);
-    records.push(...items);
-    if (items.length < limit) break;
-    skip += limit;
-  }
-  return records;
-}
-
 function buildDailyLoad(logs: any[]): Record<string, number> {
   const daily: Record<string, number> = {};
   for (const r of logs) {
@@ -167,16 +143,15 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
   try {
-    const serviceToken = Deno.env.get("BASE44_SERVICE_TOKEN") || "";
+    const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
     const { athlete } = body;
 
     const [allLogs, allWellness] = await Promise.all([
-      fetchAllRecords('SessionLog', serviceToken),
-      fetchAllRecords('WellnessCheckIn', serviceToken),
+      base44.asServiceRole.entities.SessionLog.list(),
+      base44.asServiceRole.entities.WellnessCheckIn.list(),
     ]);
 
-    // Group by athlete
     const byAthlete: Record<string, any[]> = {};
     for (const r of allLogs) {
       if (!byAthlete[r.athlete]) byAthlete[r.athlete] = [];
@@ -243,13 +218,11 @@ Deno.serve(async (req) => {
     });
 
     const squadCalendar = buildSquadLoadCalendar(allLogs);
-
     const totalSessions = allLogs.length;
     const activeThisWeek = athletes.filter(a => byAthlete[a].some(r => new Date(r.timestamp) >= week7)).length;
     const allRpes = allLogs.filter(r => r.rpe).map(r => r.rpe);
     const avgSquadRpe = allRpes.length ? parseFloat((allRpes.reduce((a, v) => a + v, 0) / allRpes.length).toFixed(1)) : null;
 
-    // Per-athlete ACWR series for interactive dropdown
     const acwrByAthlete: Record<string, any[]> = {};
     for (const ath of athletes) {
       acwrByAthlete[ath] = computeACWR(byAthlete[ath]).slice(-28);
