@@ -1,8 +1,8 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClient } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = createClient({ appId: "6a2139cf1719e3fb84188511", serviceToken: Deno.env.get("BASE44_SERVICE_TOKEN") || "" });
     const records = await base44.asServiceRole.entities.TestingResult.list();
 
     // Group by year level

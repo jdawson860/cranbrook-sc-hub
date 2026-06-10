@@ -1,12 +1,36 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+const APP_ID = "6a2139cf1719e3fb84188511";
+const BASE_URL = `https://api.base44.com/api/apps/${APP_ID}/entities`;
+
+async function fetchAllRecords(entity: string, serviceToken: string): Promise<any[]> {
+  const records: any[] = [];
+  let skip = 0;
+  const limit = 500;
+  while (true) {
+    const res = await fetch(`${BASE_URL}/${entity}/?limit=${limit}&skip=${skip}`, {
+      headers: {
+        'Authorization': `Bearer ${serviceToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!res.ok) break;
+    const data = await res.json();
+    const items = Array.isArray(data) ? data : (data.records || data.items || []);
+    records.push(...items);
+    if (items.length < limit) break;
+    skip += limit;
+  }
+  return records;
+}
+
 function buildDailyLoad(logs: any[]): Record<string, number> {
   const daily: Record<string, number> = {};
   for (const r of logs) {
     const date = r.timestamp?.split('T')[0];
     if (!date) continue;
     const load = parseFloat(r.load);
-    const reps = r.reps || 1;
+    const reps = parseFloat(r.reps) || 1;
     if (!isNaN(load)) {
       daily[date] = (daily[date] || 0) + load * reps;
     }
@@ -92,7 +116,7 @@ function buildSessionHistory(logs: any[]): any[] {
         .sort((a, b) => (a.set_number || 0) - (b.set_number || 0) || new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
         .forEach(s => { if (s.exercise && !exSeen.has(s.exercise)) { exSeen.add(s.exercise); exerciseOrder.push(s.exercise); } });
       const rpes = sets.filter(s => s.rpe).map(s => s.rpe);
-      const tl = sets.reduce((a, s) => { const l = parseFloat(s.load); return a + (isNaN(l) ? 0 : l * (s.reps || 1)); }, 0);
+      const tl = sets.reduce((a, s) => { const l = parseFloat(s.load); return a + (isNaN(l) ? 0 : l * (parseFloat(s.reps) || 1)); }, 0);
       sessions.push({
         date,
         session_type: r.session_type,
@@ -106,39 +130,6 @@ function buildSessionHistory(logs: any[]): any[] {
   return sessions.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-// Detect progressive overload spikes (>10% week-over-week per exercise)
-function detectOverloadFlags(logs: any[]): { athlete: string, exercise: string, prevWeekLoad: number, thisWeekLoad: number, pct: number }[] {
-  const flags: { athlete: string, exercise: string, prevWeekLoad: number, thisWeekLoad: number, pct: number }[] = [];
-  const now = new Date();
-  const thisWeekStart = new Date(now); thisWeekStart.setDate(now.getDate() - 7);
-  const prevWeekStart = new Date(now); prevWeekStart.setDate(now.getDate() - 14);
-
-  const byAthleteExercise: Record<string, Record<string, { thisWeek: number, prevWeek: number }>> = {};
-  for (const r of logs) {
-    const d = new Date(r.timestamp);
-    const load = parseFloat(r.load);
-    if (isNaN(load) || load <= 0 || !r.exercise) continue;
-    const vol = load * (r.reps || 1);
-    if (!byAthleteExercise[r.athlete]) byAthleteExercise[r.athlete] = {};
-    if (!byAthleteExercise[r.athlete][r.exercise]) byAthleteExercise[r.athlete][r.exercise] = { thisWeek: 0, prevWeek: 0 };
-    if (d >= thisWeekStart) byAthleteExercise[r.athlete][r.exercise].thisWeek += vol;
-    else if (d >= prevWeekStart) byAthleteExercise[r.athlete][r.exercise].prevWeek += vol;
-  }
-
-  for (const [athlete, exercises] of Object.entries(byAthleteExercise)) {
-    for (const [exercise, { thisWeek, prevWeek }] of Object.entries(exercises)) {
-      if (prevWeek > 0 && thisWeek > 0) {
-        const pct = Math.round(((thisWeek - prevWeek) / prevWeek) * 100);
-        if (pct > 10) {
-          flags.push({ athlete, exercise, prevWeekLoad: Math.round(prevWeek), thisWeekLoad: Math.round(thisWeek), pct });
-        }
-      }
-    }
-  }
-  return flags.sort((a, b) => b.pct - a.pct);
-}
-
-// Build 28-day squad daily load for calendar view
 function buildSquadLoadCalendar(allLogs: any[]): { date: string, totalLoad: number, athletes: number, sessions: number }[] {
   const byDate: Record<string, { load: number, athletes: Set<string>, sessions: Set<string> }> = {};
   for (const r of allLogs) {
@@ -146,7 +137,7 @@ function buildSquadLoadCalendar(allLogs: any[]): { date: string, totalLoad: numb
     if (!date) continue;
     const load = parseFloat(r.load);
     if (!byDate[date]) byDate[date] = { load: 0, athletes: new Set(), sessions: new Set() };
-    if (!isNaN(load)) byDate[date].load += load * (r.reps || 1);
+    if (!isNaN(load)) byDate[date].load += load * (parseFloat(r.reps) || 1);
     byDate[date].athletes.add(r.athlete);
     byDate[date].sessions.add(`${r.athlete}|${r.session_type}`);
   }
@@ -176,13 +167,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
   try {
-    const base44 = createClientFromRequest(req);
+    const serviceToken = Deno.env.get("BASE44_SERVICE_TOKEN") || "";
     const body = await req.json().catch(() => ({}));
-    const { view, athlete } = body;
+    const { athlete } = body;
 
     const [allLogs, allWellness] = await Promise.all([
-      base44.asServiceRole.entities.SessionLog.list(),
-      base44.asServiceRole.entities.WellnessCheckIn.list(),
+      fetchAllRecords('SessionLog', serviceToken),
+      fetchAllRecords('WellnessCheckIn', serviceToken),
     ]);
 
     // Group by athlete
@@ -196,7 +187,6 @@ Deno.serve(async (req) => {
     const now = new Date();
     const week7 = new Date(now); week7.setDate(now.getDate() - 7);
 
-    // Squad heatmap: this week, each athlete x session type
     const sessionTypes = ['Lower A', 'Lower B', 'Upper A', 'Upper B'];
     const heatmap: Record<string, Record<string, boolean>> = {};
     for (const ath of athletes) {
@@ -207,7 +197,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Wellness — last check-in per athlete
     const wellnessByAthlete: Record<string, any> = {};
     for (const w of allWellness) {
       const ath = w.athlete;
@@ -216,7 +205,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Per-athlete summaries
     const athleteSummaries = athletes.map(ath => {
       const logs = byAthlete[ath];
       const recent = logs.filter(r => new Date(r.timestamp) >= week7);
@@ -225,7 +213,7 @@ Deno.serve(async (req) => {
       const avgRpe = logs.filter(r => r.rpe).length
         ? parseFloat((logs.reduce((a, r) => a + (r.rpe || 0), 0) / logs.filter(r => r.rpe).length).toFixed(1))
         : null;
-      const wkLoad = recent.reduce((a, r) => { const l = parseFloat(r.load); return a + (isNaN(l) ? 0 : l * (r.reps || 1)); }, 0);
+      const wkLoad = recent.reduce((a, r) => { const l = parseFloat(r.load); return a + (isNaN(l) ? 0 : l * (parseFloat(r.reps) || 1)); }, 0);
       const lastLog = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       const daysSinceLast = lastLog ? Math.floor((now.getTime() - new Date(lastLog.timestamp).getTime()) / 86400000) : null;
       const wellness = wellnessByAthlete[ath] || null;
@@ -255,14 +243,18 @@ Deno.serve(async (req) => {
     });
 
     const squadCalendar = buildSquadLoadCalendar(allLogs);
-    const overloadFlags = detectOverloadFlags(allLogs);
 
     const totalSessions = allLogs.length;
     const activeThisWeek = athletes.filter(a => byAthlete[a].some(r => new Date(r.timestamp) >= week7)).length;
     const allRpes = allLogs.filter(r => r.rpe).map(r => r.rpe);
     const avgSquadRpe = allRpes.length ? parseFloat((allRpes.reduce((a, v) => a + v, 0) / allRpes.length).toFixed(1)) : null;
 
-    // Individual athlete detail
+    // Per-athlete ACWR series for interactive dropdown
+    const acwrByAthlete: Record<string, any[]> = {};
+    for (const ath of athletes) {
+      acwrByAthlete[ath] = computeACWR(byAthlete[ath]).slice(-28);
+    }
+
     let individualDetail = null;
     if (athlete && byAthlete[athlete]) {
       const logs = byAthlete[athlete];
@@ -298,7 +290,7 @@ Deno.serve(async (req) => {
       heatmap,
       session_types: sessionTypes,
       squadCalendar,
-      overloadFlags,
+      acwrByAthlete,
       individual: individualDetail,
       ...(individualDetail || {}),
     }, { status: 200, headers: cors });
