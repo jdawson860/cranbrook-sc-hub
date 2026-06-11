@@ -458,9 +458,9 @@ async function loadCoachView(){
 }
 
 function renderCoachView(data){
-  const sums = data.athlete_summaries || [];
-  const athletes = data.athletes || [];
-  const squad = data.squad || {};
+  const sums = data.athletes || [];
+  const athletes = sums.map(a => a.athlete);
+  const squad = data.summary || {};
   const heatmap = data.heatmap || {};
   const sessionTypes = data.session_types || ['Lower A','Lower B','Upper A','Upper B'];
 
@@ -470,9 +470,9 @@ function renderCoachView(data){
   document.getElementById('mainContent').innerHTML=`
     <div class="section-title">Squad Overview</div>
     <div class="stats-grid">
-      <div class="stat-card green"><div class="stat-label">Active This Week</div><div class="stat-value">${squad.active_this_week||0}<span style="font-size:14px;color:var(--muted)">/${squad.total_athletes||0}</span></div><div class="stat-sub">Athletes trained</div></div>
+      <div class="stat-card green"><div class="stat-label">Active This Week</div><div class="stat-value">${squad.active_this_week||0}<span style="font-size:14px;color:var(--muted)">/${sums.length||0}</span></div><div class="stat-sub">Athletes trained</div></div>
       <div class="stat-card"><div class="stat-label">Total Sets</div><div class="stat-value">${squad.total_sessions||0}</div><div class="stat-sub">All time</div></div>
-      <div class="stat-card warn"><div class="stat-label">Avg Squad RPE</div><div class="stat-value">${squad.avg_rpe||'—'}</div><div class="stat-sub">All sets</div></div>
+      <div class="stat-card warn"><div class="stat-label">Avg Squad RPE</div><div class="stat-value">${squad.avg_squad_rpe||'—'}</div><div class="stat-sub">All sets</div></div>
     </div>
 
     <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -1275,7 +1275,7 @@ function exportWeeklyPDF() {
   <div class="summary-grid">
     <div class="summary-card"><div class="sv">${squad.active_this_week||0}/${squad.total_athletes||0}</div><div class="sl">Athletes Active</div></div>
     <div class="summary-card"><div class="sv">${squad.total_sessions||0}</div><div class="sl">Total Sets</div></div>
-    <div class="summary-card"><div class="sv">${squad.avg_rpe||'—'}</div><div class="sl">Avg Squad RPE</div></div>
+    <div class="summary-card"><div class="sv">${squad.avg_squad_rpe||'—'}</div><div class="sl">Avg Squad RPE</div></div>
     <div class="summary-card"><div class="sv">${flags.length}</div><div class="sl">Load Spikes</div></div>
   </div>
 
