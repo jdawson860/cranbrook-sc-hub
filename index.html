@@ -562,7 +562,7 @@ function renderCoachView(data){
       <td style="color:${ds>7?'var(--red)':'var(--text)'};font-weight:${ds>7?700:400}">${lastStr}</td>
       <td><div class="mini-bar-wrap"><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:${Math.round((a.total_sessions||0)/maxSess*100)}%"></div></div><span style="font-size:13px;font-weight:700">${a.total_sessions||0}</span></div></td>
       <td>${badges||'<span style="color:var(--muted)">—</span>'}</td>
-      <td style="color:\${(a.high_rpe_sets||0)>3?'var(--red)':'var(--text)'};font-weight:\${(a.high_rpe_sets||0)>3?700:400}">\${a.high_rpe_sets||0}</td>
+      <td style="color:${(a.high_rpe_sets||0)>3?'var(--red)':'var(--text)'};font-weight:${(a.high_rpe_sets||0)>3?700:400}">${a.high_rpe_sets||0}</td>
       <td><span class="acwr-badge ${acwrCls}">${acwrVal?acwrVal.toFixed(2):'—'}</span></td>
       <td><span style="font-size:12px;color:var(--muted)">${a.weekly_load>0?a.weekly_load.toLocaleString()+'kg':'—'}</span></td>
     `;

@@ -203,11 +203,14 @@ Deno.serve(async (req) => {
       for (const st of sessionTypes) sessionCounts[st] = 0;
       for (const r of logs) { if (sessionCounts[r.session_type] !== undefined) sessionCounts[r.session_type]++; }
 
+      const highRpeSets = logs.filter(r => (r.rpe || 0) >= 9).length;
+
       return {
         athlete: ath,
         total_sessions: logs.length,
         recent_sessions: recent.length,
         avg_rpe: avgRpe,
+        high_rpe_sets: highRpeSets,
         acwr: latestAcwr?.acwr ?? null,
         acute: latestAcwr?.acute ?? null,
         chronic: latestAcwr?.chronic ?? null,
