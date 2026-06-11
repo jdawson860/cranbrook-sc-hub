@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClient } from 'npm:@base44/sdk@0.8.31';
 
 function buildDailyLoad(logs: any[]): Record<string, number> {
   const daily: Record<string, number> = {};
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = createClient({ appId: "6a2139cf1719e3fb84188511", serviceToken: Deno.env.get("BASE44_SERVICE_TOKEN") || "" });
     const body = await req.json().catch(() => ({}));
     const { athlete } = body;
 
