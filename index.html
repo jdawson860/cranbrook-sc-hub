@@ -1242,9 +1242,9 @@ async function saveCoachNote() {
 // ── PDF EXPORT ─────────────────────────────────────────────────────────
 function exportWeeklyPDF() {
   // Build HTML report, open in new tab for printing
-  const sums = coachData?.athlete_summaries || [];
+  const sums = coachData?.athletes || [];
   const flags = coachData?.overloadFlags || [];
-  const squad = coachData?.squad || {};
+  const squad = coachData?.summary || {};
   const today = new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'long',year:'numeric'});
 
   const acwrZone = (v) => !v?'—':v<0.8?'Under-training':v<=1.3?'✅ Optimal':v<=1.5?'⚠️ Caution':'🔴 Danger';
@@ -1581,7 +1581,7 @@ function renderWaterView(data){
 // ═══════════════════════════════════════════════════
 function exportCSV(){
   if(!coachData) return;
-  const sums = coachData.athlete_summaries||[];
+  const sums = coachData.athletes||[];
   const rows = [['Athlete','Sessions','Avg RPE','High RPE Sets','ACWR','Weekly Load','Days Since Last','Last Session']];
   sums.forEach(a=>{
     rows.push([
@@ -1612,7 +1612,7 @@ function checkDataFreshness(data){
   const txt = document.getElementById('syncText');
   if(!dot||!txt) return;
   // Use the most recent session timestamp across all athletes as freshness proxy
-  const sums = data.athlete_summaries||[];
+  const sums = data.athletes||[];
   const minDays = sums.length ? Math.min(...sums.filter(a=>a.days_since_last!==null).map(a=>a.days_since_last)) : null;
   if(minDays===null){
     dot.className='sync-dot'; txt.textContent='No data';
@@ -1632,7 +1632,7 @@ async function init(){
     coachData=await fetchData(API_SC,{view:'coach'});
     if(coachData.athletes?.length>0){
       const sel=document.getElementById('athleteSelect');
-      sel.innerHTML=coachData.athletes.map(a=>`<option value="${a}">${a}</option>`).join('');
+      sel.innerHTML=coachData.athletes.map(a=>`<option value="${a.athlete}">${a.athlete}</option>`).join('');
     }
     checkDataFreshness(coachData);
     document.getElementById('csvBtn').style.display='flex';
