@@ -161,6 +161,7 @@
     <p>Who are you?</p>
     <div class="ath-grid" id="athGrid"></div>
     <div style="font-size:12px;color:var(--muted)">Tap your initials to begin logging</div>
+    <button id="overlayCancel" onclick="cancelAthletePicker()" style="display:none;margin-top:16px;padding:10px 28px;background:transparent;border:1.5px solid rgba(255,255,255,0.3);border-radius:10px;color:rgba(255,255,255,0.7);font-size:14px;cursor:pointer;">✕ Cancel</button>
   </div>
 </div>
 
@@ -572,6 +573,13 @@ function init() {
 
 function showAthletePicker() {
   document.getElementById('overlay').classList.remove('hidden');
+  // Hide cancel button on first-load picker (no athlete yet)
+  const cancelBtn = document.getElementById('overlayCancel');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
+function cancelAthletePicker() {
+  document.getElementById('overlay').classList.add('hidden');
 }
 
 function buildAthGrid() {
@@ -608,6 +616,9 @@ function selectAthlete(ath) {
 
 function changeAthlete() {
   document.getElementById('overlay').classList.remove('hidden');
+  // Show cancel button only when already logged in (switching mid-session)
+  const cancelBtn = document.getElementById('overlayCancel');
+  if (cancelBtn && currentAthlete) cancelBtn.style.display = 'block';
 }
 
 // ── MODE SWITCH ───────────────────────────────────────────────────────
