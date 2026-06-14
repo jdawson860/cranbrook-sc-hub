@@ -555,19 +555,20 @@ let extractedIntervalSplits = [];
 
 // ── INIT ──────────────────────────────────────────────────────────────
 function init() {
-  // Auto-fill date pickers with today
+  // Auto-fill date pickers with today (will be overridden by stored values below)
   const today = new Date().toISOString().split('T')[0];
   const sd = document.getElementById('sessDate');
   if (sd) sd.value = today;
   const ed = document.getElementById('ergDate');
   if (ed) ed.value = today;
   buildAthGrid();
+  // Load stored session FIRST so we have saved dates/state before selectAthlete runs
+  loadStoredSession();
   if (currentAthlete) {
-    selectAthlete(currentAthlete, false);
+    selectAthlete(currentAthlete, true); // true = reload (don't clear session)
   } else {
     showAthletePicker();
   }
-  loadStoredSession();
   updateErgForm();
 }
 
@@ -588,9 +589,9 @@ function buildAthGrid() {
   ).join('');
 }
 
-function selectAthlete(ath) {
-  // Warn if switching athletes mid-session
-  if (currentAthlete && ath !== currentAthlete && currentSession && exercises.length > 0) {
+function selectAthlete(ath, isReload) {
+  // Warn if switching athletes mid-session (not on page reload)
+  if (!isReload && currentAthlete && ath !== currentAthlete && currentSession && exercises.length > 0) {
     if (!confirm('⚠️ You have an active session in progress. Switching athletes will lose all unsaved data. Continue?')) {
       return;
     }
@@ -600,8 +601,10 @@ function selectAthlete(ath) {
   document.getElementById('overlay').classList.add('hidden');
   document.getElementById('headerAth').textContent = ath;
 
-  // Reset S&C session state so new athlete starts fresh
-  clearSession();
+  // Only clear session when actively switching athletes, not on page reload
+  if (!isReload) {
+    clearSession();
+  }
 
   // Reset history so it reloads for the new athlete
   _historyScSessions = [];
@@ -831,6 +834,7 @@ function clearSession() {
   document.getElementById('sessType').value = '';
   document.getElementById('sessionRpe').value = '';
   localStorage.removeItem('cranbrook_session');
+  if (currentAthlete) localStorage.removeItem('cranbrook_session_' + currentAthlete);
 }
 
 function resetSession() {
@@ -841,14 +845,29 @@ function saveSession() {
   const sessDate = document.getElementById('sessDate')?.value || '';
   const sessType = document.getElementById('sessType')?.value || '';
   const ergDate = document.getElementById('ergDate')?.value || '';
+  // Always save — even before session is started — keyed to athlete
+  const key = 'cranbrook_session_' + (currentAthlete || 'default');
+  localStorage.setItem(key, JSON.stringify({ currentSession, exercises, sessDate, sessType, ergDate }));
+  // Also write to legacy key for backward compat
   localStorage.setItem('cranbrook_session', JSON.stringify({ currentSession, exercises, sessDate, sessType, ergDate }));
 }
 
 function loadStoredSession() {
   try {
-    const stored = localStorage.getItem('cranbrook_session');
+    // Try athlete-keyed storage first, fall back to legacy key
+    const athlete = localStorage.getItem('cranbrook_athlete');
+    const key = athlete ? 'cranbrook_session_' + athlete : 'cranbrook_session';
+    const stored = localStorage.getItem(key) || localStorage.getItem('cranbrook_session');
     if (!stored) return;
-    const { currentSession: cs, exercises: ex } = JSON.parse(stored);
+    const data = JSON.parse(stored);
+    const { currentSession: cs, exercises: ex, sessDate, sessType, ergDate } = data;
+
+    // Always restore form inputs regardless of whether session was started
+    if (sessDate) { const el = document.getElementById('sessDate'); if (el) el.value = sessDate; }
+    if (sessType) { const el = document.getElementById('sessType'); if (el) el.value = sessType; }
+    if (ergDate) { const el = document.getElementById('ergDate'); if (el) el.value = ergDate; }
+
+    // Only restore active session UI if session was actually started
     if (!cs || !ex) return;
     currentSession = cs;
     exercises = ex;
@@ -861,10 +880,6 @@ function loadStoredSession() {
     document.getElementById('exSelect').innerHTML = '<option value="">— Choose exercise —</option>' +
       exList.map(e=>`<option value="${e}">${e}</option>`).join('');
     renderExercises();
-    // Restore input field values
-    if (cs.sessDate) { const el = document.getElementById('sessDate'); if (el) el.value = cs.sessDate; }
-    if (cs.sessType) { const el = document.getElementById('sessType'); if (el) el.value = cs.sessType; }
-    if (cs.ergDate) { const el = document.getElementById('ergDate'); if (el) el.value = cs.ergDate; }
   } catch(e) {}
 }
 
