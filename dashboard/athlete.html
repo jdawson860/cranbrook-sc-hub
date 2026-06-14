@@ -776,6 +776,7 @@ async function submitSession() {
     if (res.ok) {
       const sheetMsg = res.sheet_synced ? ' + Sheet ✓' : '';
       showToast(`✅ Session logged! ${res.created} sets saved.${sheetMsg}`, 4000);
+      historyLoaded = false; // bust cache so History tab reflects new submission
       clearSession();
     } else {
       showToast('❌ Error submitting. Try again.');

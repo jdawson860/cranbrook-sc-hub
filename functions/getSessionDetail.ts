@@ -1,13 +1,30 @@
-// getSessionDetail v2 - uses direct REST API (no SDK asServiceRole)
+// getSessionDetail v3 — reads from Athlete Hub Responses Google Sheet (same source as getDashboardData)
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-const APP_ID = "6a2139cf1719e3fb84188511";
-const BASE = `https://app.base44.com/api/apps/${APP_ID}/entities`;
+const SHEET_ID     = "1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk";
+const SHEETS_API   = "https://sheets.googleapis.com/v4/spreadsheets";
+const SOURCE_SHEET = "Athlete Hub Responses";
 
-async function fetchEntity(entity: string, token: string): Promise<any[]> {
-  const res = await fetch(`${BASE}/${entity}`, { headers: { 'api_key': token } });
-  if (!res.ok) throw new Error(`${entity} fetch failed: ${res.status}`);
-  const data = await res.json();
-  return Array.isArray(data) ? data : [];
+const ABBREV = new Set(['BB','DB','SB','KB','RDL','GHD','ISO','RFESS','TRX','RM']);
+
+function toTitleCase(s: string): string {
+  if (!s) return s;
+  return s.trim().split(/\s+/).map(w => {
+    const u = w.toUpperCase();
+    return ABBREV.has(u) ? u : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+function parseDate(val: string): string | null {
+  if (!val) return null;
+  const datePart = val.trim().split(' ')[0];
+  const slashParts = datePart.split('/');
+  if (slashParts.length === 3) {
+    const [m, d, y] = slashParts;
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T09:00:00`;
+  }
+  if (datePart.length >= 10) return datePart.slice(0,10) + 'T09:00:00';
+  return null;
 }
 
 const SESSION_EXERCISE_ORDER: Record<string, string[]> = {
@@ -17,7 +34,7 @@ const SESSION_EXERCISE_ORDER: Record<string, string[]> = {
   'Upper B': ['Bench Pull','Half Kneeling Wall Thoracic Rotation','BB Shoulder Press','Half Kneeling Banded Cuban Press','DB Lateral Raise','Biceps of Your Choice','Pallof Press ISO Hold'],
 };
 
-function sortExercisesByCanonicalOrder(exercises: string[], sessionType: string): string[] {
+function sortExercises(exercises: string[], sessionType: string): string[] {
   const canonical = SESSION_EXERCISE_ORDER[sessionType] || [];
   return [...exercises].sort((a, b) => {
     const ia = canonical.findIndex(e => e.toUpperCase() === a.toUpperCase());
@@ -29,6 +46,44 @@ function sortExercisesByCanonicalOrder(exercises: string[], sessionType: string)
   });
 }
 
+async function fetchSheetLogs(token: string): Promise<any[]> {
+  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(SOURCE_SHEET)}!A1:I2000`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`);
+  const data: any = await res.json();
+  const rows: string[][] = data.values || [];
+
+  // Col layout: Timestamp(0) | Date(1) | Athlete(2) | Session Type(3) | Exercise(4) | Set(5) | Reps(6) | Load(7) | RPE(8)
+  const dataRows = rows.slice(1).filter(r => r && (r[0] || r[1]) && r[2] && r[3] && r[4]);
+  const groups = new Map<string, number>();
+  const logs: any[] = [];
+
+  for (const row of dataRows) {
+    const rawDate = (row[1] && row[1].trim()) ? row[1] : row[0];
+    const ts = parseDate(rawDate);
+    if (!ts) continue;
+
+    const athlete      = row[2].trim().toUpperCase();
+    const session_type = row[3].trim();
+    const exercise     = toTitleCase(row[4]);
+    const reps         = row[6] ? parseFloat(row[6]) : 0;
+    const load         = row[7] ? row[7].trim() : '0';
+    const rpe          = row[8] ? parseFloat(row[8]) : 0;
+
+    const hasData = reps !== 0 || (load !== '0' && load !== '' && load !== 'null') || rpe !== 0;
+    if (!hasData) continue;
+
+    const dateKey  = ts.slice(0, 10);
+    const groupKey = `${athlete}|${dateKey}|${session_type}|${exercise}`;
+    const setNum   = (groups.get(groupKey) || 0) + 1;
+    groups.set(groupKey, setNum);
+
+    logs.push({ timestamp: ts, athlete, session_type, exercise, set_number: setNum, reps, load, rpe });
+  }
+
+  return logs;
+}
+
 Deno.serve(async (req) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -38,46 +93,68 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
   try {
-    const token = Deno.env.get("BASE44_SERVICE_TOKEN") || "";
+    const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
     const { athlete, date, session_type } = body;
 
-    const allLogs = await fetchEntity('SessionLog', token);
+    const { accessToken: sheetsToken } = await base44.asServiceRole.connectors.getConnection('googlesheets');
+    const allLogs = await fetchSheetLogs(sheetsToken);
 
-    const sessions: Record<string, { date: string, session_type: string, athlete: string }[]> = {};
-    for (const log of allLogs) {
-      const logDate = log.timestamp?.split('T')[0];
-      if (!logDate) continue;
-      if (!sessions[log.athlete]) sessions[log.athlete] = [];
-      const exists = sessions[log.athlete].find(s => s.date === logDate && s.session_type === log.session_type);
-      if (!exists) sessions[log.athlete].push({ date: logDate, session_type: log.session_type, athlete: log.athlete });
+    // Build session index for the athlete
+    const athleteLogs = allLogs.filter(l => !athlete || l.athlete === athlete);
+    const sessionMap: Record<string, { date: string; session_type: string; athlete: string }> = {};
+    for (const log of athleteLogs) {
+      const d = log.timestamp?.split('T')[0];
+      if (!d) continue;
+      const key = `${log.athlete}|${d}|${log.session_type}`;
+      if (!sessionMap[key]) sessionMap[key] = { date: d, session_type: log.session_type, athlete: log.athlete };
+    }
+    const sessions: Record<string, any[]> = {};
+    for (const s of Object.values(sessionMap)) {
+      if (!sessions[s.athlete]) sessions[s.athlete] = [];
+      sessions[s.athlete].push(s);
     }
     for (const ath of Object.keys(sessions)) {
       sessions[ath].sort((a, b) => b.date.localeCompare(a.date));
     }
 
+    // Build detailed view for a specific session
     let sessionDetail = null;
     if (athlete && date && session_type) {
-      const sets = allLogs.filter(l => l.athlete === athlete && l.timestamp?.startsWith(date) && l.session_type === session_type);
-      const exerciseFirstSeen: Record<string, number> = {};
+      const sets = allLogs.filter(l =>
+        l.athlete === athlete &&
+        l.timestamp?.startsWith(date) &&
+        l.session_type === session_type
+      );
+
       const byExercise: Record<string, any[]> = {};
+      const exerciseOrder: string[] = [];
 
-      sets.forEach((s, idx) => {
-        const ex = s.exercise;
-        if (!ex) return;
-        if (!(ex in byExercise)) { byExercise[ex] = []; exerciseFirstSeen[ex] = idx; }
-        byExercise[ex].push({ set: s.set_number, reps: s.reps, load: s.load, rpe: s.rpe, timestamp: s.timestamp });
-      });
+      for (const s of sets) {
+        if (!s.exercise) continue;
+        if (!byExercise[s.exercise]) { byExercise[s.exercise] = []; exerciseOrder.push(s.exercise); }
+        byExercise[s.exercise].push({
+          set: s.set_number,
+          reps: s.reps,
+          load: s.load,
+          rpe: s.rpe,
+          timestamp: s.timestamp,
+        });
+      }
 
-      const rawOrder = Object.keys(byExercise).sort((a, b) => exerciseFirstSeen[a] - exerciseFirstSeen[b]);
-      const sortedExercises = sortExercisesByCanonicalOrder(rawOrder, session_type);
+      const sortedExercises = sortExercises(exerciseOrder, session_type);
       for (const ex of sortedExercises) {
-        byExercise[ex].sort((a: any, b: any) => (a.set || 0) - (b.set || 0) || new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        byExercise[ex].sort((a: any, b: any) => (a.set || 0) - (b.set || 0));
       }
 
       const withRpe = sets.filter(s => s.rpe);
-      const avgRpe = withRpe.length ? parseFloat((withRpe.reduce((a, s) => a + (s.rpe || 0), 0) / withRpe.length).toFixed(1)) : null;
-      const totalLoad = sets.reduce((a, s) => { const l = parseFloat(s.load); return a + (isNaN(l) ? 0 : l * (s.reps || 1)); }, 0);
+      const avgRpe = withRpe.length
+        ? parseFloat((withRpe.reduce((a, s) => a + (s.rpe || 0), 0) / withRpe.length).toFixed(1))
+        : null;
+      const totalLoad = sets.reduce((a, s) => {
+        const l = parseFloat(s.load);
+        return a + (isNaN(l) ? 0 : l * (parseFloat(s.reps) || 1));
+      }, 0);
 
       sessionDetail = {
         athlete, date, session_type,
