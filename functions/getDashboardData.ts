@@ -1,25 +1,48 @@
-// getDashboardData v4 — paginated fetch, correct session_counts, ACWR provisional guard
+// getDashboardData v5 — reads directly from Athlete Hub Responses Google Sheet
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-const APP_ID = "6a2139cf1719e3fb84188511";
-const BASE = `https://app.base44.com/api/apps/${APP_ID}/entities`;
+const SHEET_ID = "1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk";
+const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
+const HUB_SHEET = "Athlete Hub Responses";
 
-// Paginated fetch — retrieves ALL records, not just the first page
-async function fetchEntity(entity: string, token: string): Promise<any[]> {
-  const all: any[] = [];
-  let skip = 0;
-  const limit = 500;
-  while (true) {
-    const res = await fetch(`${BASE}/${entity}?limit=${limit}&skip=${skip}`, {
-      headers: { 'api_key': token },
+// Fetch all rows from the hub sheet, parse into log records
+async function fetchHubLogs(token: string): Promise<any[]> {
+  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(HUB_SHEET)}!A1:I5000`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`);
+  const data = await res.json() as { values?: string[][] };
+  const rows = data.values || [];
+  if (rows.length < 2) return [];
+  // Headers: Timestamp, Date, Athlete, Session Type, Exercise, Set, Reps, Load, RPE
+  const logs: any[] = [];
+  for (const row of rows.slice(1)) {
+    const athlete = row[2]?.trim();
+    const session_type = row[3]?.trim();
+    const exercise = row[4]?.trim();
+    if (!athlete || !session_type || !exercise) continue;
+    // Use Date col (index 1) for the date, fallback to Timestamp col (index 0)
+    const dateStr = row[1]?.trim() || row[0]?.trim() || '';
+    let isoDate = '';
+    if (dateStr) {
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) isoDate = d.toISOString().split('T')[0];
+      } catch {}
+    }
+    if (!isoDate) continue;
+    const rpe = row[8] ? parseFloat(row[8]) : null;
+    logs.push({
+      timestamp: isoDate + 'T09:00:00',
+      athlete,
+      session_type,
+      exercise,
+      set_number: row[5] ? parseInt(row[5]) : 1,
+      reps: row[6] || '',
+      load: row[7] || '',
+      rpe: rpe && !isNaN(rpe) ? rpe : null,
     });
-    if (!res.ok) throw new Error(`${entity} fetch failed: ${res.status}`);
-    const data = await res.json();
-    const page = Array.isArray(data) ? data : (data.records || data.data || []);
-    all.push(...page);
-    if (page.length < limit) break;
-    skip += limit;
   }
-  return all;
+  return logs;
 }
 
 function buildDailyLoad(logs: any[]): Record<string, number> {
@@ -163,14 +186,15 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
   try {
-    const token = Deno.env.get("BASE44_SERVICE_TOKEN") || "";
+    const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
     const { athlete } = body;
 
-    const [allLogs, allWellness] = await Promise.all([
-      fetchEntity('SessionLog', token),
-      fetchEntity('WellnessCheckIn', token),
-    ]);
+    const { accessToken: sheetsToken } = await base44.asServiceRole.connectors.getConnection('googlesheets');
+    if (!sheetsToken) throw new Error("Google Sheets not connected");
+
+    const allLogs = await fetchHubLogs(sheetsToken);
+    const allWellness: any[] = []; // wellness not in hub sheet
 
     const byAthlete: Record<string, any[]> = {};
     for (const r of allLogs) {
