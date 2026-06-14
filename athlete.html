@@ -699,6 +699,8 @@ async function submitSession() {
   for (const ex of exercises) {
     for (let i = 0; i < ex.sets.length; i++) {
       const s = ex.sets[i];
+      // Skip completely blank sets (no reps AND no load)
+      if (!s.reps && !s.load) continue;
       records.push({
         timestamp: ts,
         athlete: currentAthlete,
@@ -710,6 +712,12 @@ async function submitSession() {
         rpe: s.rpe ? Number(s.rpe) : (sessionRpe ? Number(sessionRpe) : null),
       });
     }
+  }
+
+  if (!records.length) {
+    showToast('⚠️ No sets with data to submit. Fill in at least reps or load.');
+    btn.disabled = false; btn.textContent = 'Submit Session ✓';
+    return;
   }
 
   try {
