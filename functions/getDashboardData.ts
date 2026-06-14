@@ -1,4 +1,4 @@
-// getDashboardData v5 — reads directly from Athlete Hub Responses Google Sheet
+// getDashboardData v6 — reads directly from Athlete Hub Responses Google Sheet
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const SHEET_ID = "1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk";
