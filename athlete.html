@@ -593,6 +593,8 @@ function selectAthlete(ath, isReload) {
   // Warn if switching athletes mid-session (not on page reload)
   if (!isReload && currentAthlete && ath !== currentAthlete && currentSession && exercises.length > 0) {
     if (!confirm('⚠️ You have an active session in progress. Switching athletes will lose all unsaved data. Continue?')) {
+      // Hide the overlay and keep current athlete
+      document.getElementById('overlay').classList.add('hidden');
       return;
     }
   }
@@ -880,6 +882,8 @@ function loadStoredSession() {
     document.getElementById('exSelect').innerHTML = '<option value="">— Choose exercise —</option>' +
       exList.map(e=>`<option value="${e}">${e}</option>`).join('');
     renderExercises();
+    // Re-fetch PBs in background so placeholders populate after reload
+    if (cs.athlete) fetchAthleteHistory(cs.athlete);
   } catch(e) {}
 }
 
