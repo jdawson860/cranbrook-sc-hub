@@ -540,6 +540,46 @@ const EXERCISES = {
   ],
 };
 
+// Optional add-on exercises per session type (shown in "Add extra exercise" dropdown)
+const EXTRAS = {
+  'Lower A': [
+    'Belt Squat',
+    'Leg Curl',
+    'Nordic Hamstring Curl',
+    'Hip Thrust',
+    'Box Jump',
+    'Step Ups',
+    'Goblet Squat',
+    'KB Swing',
+  ],
+  'Lower B': [
+    'Belt Squat',
+    'Leg Curl',
+    'Nordic Hamstring Curl',
+    'Hip Thrust',
+    'Box Jump',
+    'Step Ups',
+    'Goblet Squat',
+    'KB Swing',
+  ],
+  'Upper A': [
+    'Face Pulls',
+    'Cable Row',
+    'DB Shoulder Press',
+    'Tricep Pushdown',
+    'Hammer Curl',
+    'Band Pull Apart',
+  ],
+  'Upper B': [
+    'Face Pulls',
+    'Cable Row',
+    'Pull Ups',
+    'Tricep Pushdown',
+    'Hammer Curl',
+    'Band Pull Apart',
+  ],
+};
+
 const TIME_EXERCISES = ['GHD Hold','Prone Plank','Side Plank','GHD Raise','Hollow Hold','GHD Anti-Lateral Flexion Hold','SB Roll Out + Plank Hold','Pallof Press ISO Hold'];
 const BAND_EXERCISES = ['Chin Ups','Pull Up'];
 
@@ -667,8 +707,9 @@ function startSession() {
   document.getElementById('scSessName').textContent = st;
 
   // Populate exercise dropdown (for adding extras not in the program)
+  const extrasList = (EXTRAS[st] || []).filter(e => !exercises.find(ex => ex.name === e));
   document.getElementById('exSelect').innerHTML = '<option value="">— Add extra exercise —</option>' +
-    exList.map(e => `<option value="${e}">${e}</option>`).join('');
+    extrasList.map(e => `<option value="${e}">${e}</option>`).join('');
 
   saveSession();
   renderExercises();
@@ -881,7 +922,7 @@ function loadStoredSession() {
     document.getElementById('scSessName').textContent = cs.session_type;
     const exList = EXERCISES[cs.session_type] || [];
     document.getElementById('exSelect').innerHTML = '<option value="">— Choose exercise —</option>' +
-      exList.map(e=>`<option value="${e}">${e}</option>`).join('');
+      (EXTRAS[cs.session_type] || []).map(e=>`<option value="${e}">${e}</option>`).join('');
     renderExercises();
     // Re-fetch PBs in background so placeholders populate after reload
     if (cs.athlete) fetchAthleteHistory(cs.athlete);
