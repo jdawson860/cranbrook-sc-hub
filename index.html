@@ -604,6 +604,167 @@ function renderCoachView(data){
 
 
 
+
+// ── Squad ACWR ─────────────────────────────────────────────────────────────
+function buildSquadACWR(sums) {
+  // Aggregate all athletes' acwr_history by date, return squad-avg series
+  const byDate = {};
+  (sums || []).forEach(a => {
+    (a.acwr_history || []).forEach(p => {
+      if (!byDate[p.date]) byDate[p.date] = { acute: [], chronic: [], acwr: [] };
+      if (p.acute)   byDate[p.date].acute.push(p.acute);
+      if (p.chronic) byDate[p.date].chronic.push(p.chronic);
+      if (p.acwr)    byDate[p.date].acwr.push(p.acwr);
+    });
+  });
+  const avg = arr => arr.length ? parseFloat((arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2)) : null;
+  return Object.keys(byDate).sort().map(date => ({
+    date,
+    acute:   avg(byDate[date].acute),
+    chronic: avg(byDate[date].chronic),
+    acwr:    avg(byDate[date].acwr),
+  }));
+}
+
+function renderACWRChart(canvasId, markerId, acwrData) {
+  const ctx = document.getElementById(canvasId)?.getContext('2d');
+  if (!ctx) return;
+  if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; }
+
+  const series = (acwrData || []).slice(-28);
+  if (!series.length) return;
+
+  const labels  = series.map(p => p.date?.slice(5));
+  const acwrVals  = series.map(p => p.acwr);
+  const acuteVals = series.map(p => p.acute);
+  const chronVals = series.map(p => p.chronic);
+
+  // Update zone marker to latest ACWR
+  if (markerId) {
+    const latest = acwrVals.filter(Boolean).at(-1);
+    const marker = document.getElementById(markerId);
+    if (marker && latest) {
+      // ACWR 0.6–1.6 mapped to 0–100%
+      const pct = Math.min(100, Math.max(0, ((latest - 0.6) / 1.0) * 100));
+      marker.style.left = pct + '%';
+    }
+  }
+
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'ACWR', data: acwrVals, borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,.08)', fill: true, tension: .35, pointRadius: 3, borderWidth: 2 },
+        { label: 'Acute (7d)', data: acuteVals, borderColor: '#f59e0b', borderDash: [4,2], fill: false, tension: .35, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Chronic (28d)', data: chronVals, borderColor: '#22c55e', borderDash: [4,2], fill: false, tension: .35, pointRadius: 0, borderWidth: 1.5 },
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#8fa0be', boxWidth: 12, font: { size: 10 } } } },
+      scales: {
+        y: { min: 0, ticks: { color: '#8fa0be', stepSize: 0.2 }, grid: { color: 'rgba(255,255,255,.05)' } },
+        x: { ticks: { color: '#8fa0be' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ── Erg Session Filter ─────────────────────────────────────────────────────
+function filterErgSessions() {
+  const ath  = document.getElementById('ergFilterAthlete')?.value || '';
+  const days = parseInt(document.getElementById('ergFilterDate')?.value) || 0;
+  const tbody = document.getElementById('ergSessionsBody');
+  if (!tbody) return;
+
+  let sessions = window._ergAllSessions || [];
+  if (ath)  sessions = sessions.filter(s => s.athlete === ath);
+  if (days) {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    const cutStr = cutoff.toISOString().split('T')[0];
+    sessions = sessions.filter(s => (s.timestamp||'').slice(0,10) >= cutStr);
+  }
+
+  const countEl = document.getElementById('ergFilterCount');
+  if (countEl) countEl.textContent = sessions.length + ' session' + (sessions.length !== 1 ? 's' : '');
+
+  if (!sessions.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">No sessions match this filter</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sessions.map(s => {
+    const date = (s.timestamp||'').slice(0,10);
+    const dist = s.total_distance ? (s.total_distance >= 1000 ? (s.total_distance/1000).toFixed(2)+'km' : s.total_distance+'m') : '—';
+    const rpeClass = (s.rpe||0) >= 8.5 ? 'rpe-high' : (s.rpe||0) >= 7.5 ? 'rpe-mid' : 'rpe-low';
+    return `<tr class="clickable-row" onclick="openErgSession(${JSON.stringify(s).replace(/"/g,'&quot;')})" title="View erg session">
+      <td style="font-weight:600">${date}</td>
+      <td><span class="athlete-name">${s.athlete||'—'}</span></td>
+      <td>${s.workout_type||'—'}</td>
+      <td style="font-weight:700">${dist}</td>
+      <td>${s.total_time||'—'}</td>
+      <td>${s.avg_split ? '<span class="split-badge">'+s.avg_split+'</span>' : '—'}</td>
+      <td>${s.avg_heart_rate ? s.avg_heart_rate+' bpm' : '—'}</td>
+      <td>${s.rpe ? '<span class="rpe-badge '+rpeClass+'">'+s.rpe+'</span>' : '—'}</td>
+      <td style="color:var(--accent);font-size:11px;font-weight:600">View →</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Testing View ──────────────────────────────────────────────────────────
+async function loadTestingView() {
+  destroyCharts();
+  const el = document.getElementById('mainContent');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading testing data…</div>';
+  try {
+    const data = await fetchData(API_TEST, {});
+    const results = data.results || [];
+    const athletes = data.athletes || [];
+
+    if (!results.length) {
+      el.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">No testing data recorded yet.</div>';
+      return;
+    }
+
+    // Latest result per athlete
+    const latest = {};
+    results.forEach(r => {
+      if (!latest[r.athlete_name] || r.timestamp > latest[r.athlete_name].timestamp) {
+        latest[r.athlete_name] = r;
+      }
+    });
+
+    const rows = Object.values(latest).map(r => `
+      <tr>
+        <td class="athlete-name">${r.athlete_name||'—'}</td>
+        <td>${r.year_level||'—'}</td>
+        <td>${r.height ? r.height+'cm' : '—'}</td>
+        <td>${r.weight ? r.weight+'kg' : '—'}</td>
+        <td style="font-weight:700">${r.hollow_hold ? r.hollow_hold+'s' : '—'}</td>
+        <td style="font-weight:700">${r.prone_plank ? r.prone_plank+'s' : '—'}</td>
+        <td>${r.side_plank_left ? r.side_plank_left+'s' : '—'}</td>
+        <td>${r.side_plank_right ? r.side_plank_right+'s' : '—'}</td>
+        <td style="color:var(--muted);font-size:11px">${(r.timestamp||'').slice(0,10)}</td>
+      </tr>`).join('');
+
+    el.innerHTML = `
+      <div class="section-title">Testing Results — Latest per Athlete</div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead><tr>
+            <th>Athlete</th><th>Year</th><th>Height</th><th>Weight</th>
+            <th>Hollow Hold</th><th>Prone Plank</th><th>Side Plank L</th><th>Side Plank R</th><th>Date</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="text-align:center;padding:60px;color:#e63946">Failed to load testing data: ${e.message}</div>`;
+  }
+}
+
 // ── Squad RPE Trend ────────────────────────────────────────────────────────
 function buildSquadRpeTrend(sums) {
   // Returns per-athlete last-30-days RPE series from acwr_history
