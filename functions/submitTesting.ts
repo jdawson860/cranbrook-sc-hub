@@ -3,10 +3,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const SHEET_ID = '1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk';
 const SHEET_NAME = 'Core_Testing_Responses';
+const SHEET_NAME_DASHBOARD = 'Core Testing Dashboard Responses';
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
-async function appendToSheet(token: string, row: any[]) {
-  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:J:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+async function appendToSheet(token: string, row: any[], sheetName: string = SHEET_NAME) {
+  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A:J:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -81,6 +82,8 @@ Deno.serve(async (req) => {
       ];
 
       await appendToSheet(sheetsToken, row);
+      // Also write to the new dashboard tab with headers if first row
+      try { await appendToSheet(sheetsToken, row, SHEET_NAME_DASHBOARD); } catch(_) {}
       sheetOk = true;
     } catch (sheetErr: any) {
       sheetError = sheetErr.message;
