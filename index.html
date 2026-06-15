@@ -829,13 +829,22 @@ let _complianceSessionTypes = ['Lower A', 'Lower B', 'Upper A', 'Upper B'];
 
 function getMondayOfWeek(offset) {
   // Returns the Monday of the week (offset weeks from current)
+  // Uses local date to avoid UTC timezone shifting days
   const now = new Date();
   const day = now.getDay(); // 0=Sun, 1=Mon...
-  const daysToMon = (day === 0) ? -6 : 1 - day; // distance to last Monday
+  const daysToMon = (day === 0) ? -6 : 1 - day; // distance to last Monday (Mon-Sun week)
   const mon = new Date(now);
   mon.setDate(now.getDate() + daysToMon + offset * 7);
   mon.setHours(0, 0, 0, 0);
   return mon;
+}
+
+function localDateStr(d) {
+  // Returns YYYY-MM-DD in LOCAL timezone (not UTC) to avoid day-shift issues
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
 }
 
 function stepComplianceWeek(delta) {
@@ -879,8 +888,8 @@ function renderComplianceForCurrentWeek() {
   if (nextBtn) nextBtn.style.opacity = isCurrentWeek ? '0.35' : '1';
 
   // Build heatmap: athlete -> session_type -> date (most recent if multiple)
-  const monStr = mon.toISOString().split('T')[0];
-  const sunStr = sun.toISOString().split('T')[0];
+  const monStr = localDateStr(mon);
+  const sunStr = localDateStr(sun);
 
   const heatmap = {}; // athlete -> session_type -> date string
   for (const ath of _complianceAthletes) heatmap[ath] = {};

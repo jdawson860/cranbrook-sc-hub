@@ -324,12 +324,22 @@ Deno.serve(async (req) => {
     }
 
     // Compact session list for client-side compliance history (date + athlete + session_type only)
+    // Use AEST local date (UTC+10) to avoid UTC day-shift causing Sunday bleed
+    const toAESTDate = (ts: string) => {
+      if (!ts) return '';
+      const d = new Date(ts);
+      const aest = new Date(d.getTime() + 10 * 60 * 60 * 1000);
+      return aest.toISOString().split('T')[0];
+    };
     const squadSessions = [...new Map(
-      allLogs.map(r => [`${r.timestamp?.split('T')[0]}|${r.athlete}|${r.session_type}`, {
-        date: r.timestamp?.split('T')[0],
-        athlete: r.athlete,
-        session_type: r.session_type,
-      }])
+      allLogs.map(r => {
+        const date = toAESTDate(r.timestamp);
+        return [`${date}|${r.athlete}|${r.session_type}`, {
+          date,
+          athlete: r.athlete,
+          session_type: r.session_type,
+        }];
+      })
     ).values()];
 
     return Response.json({
