@@ -604,6 +604,52 @@ function renderCoachView(data){
 
 
 
+
+// ── Squad RPE Trend ────────────────────────────────────────────────────────
+function buildSquadRpeTrend(sums) {
+  // Returns per-athlete last-30-days RPE series from acwr_history
+  return (sums || []).map(a => ({
+    athlete: a.athlete,
+    avgRpe: a.avg_rpe,
+    acwrHistory: a.acwr_history || [],
+  }));
+}
+
+function renderRpeTrendChart(rpeTrend, sums, athletes) {
+  const ctx = document.getElementById('rpeChart')?.getContext('2d');
+  if (!ctx) return;
+  if (charts['rpe']) { charts['rpe'].destroy(); delete charts['rpe']; }
+
+  const colors = ['#1a56db','#e63946','#22c55e','#f59e0b','#a855f7','#06b6d4','#f97316','#10b981','#ec4899','#84cc16'];
+
+  // Use per-athlete avg RPE as a simple bar chart
+  const labels = sums.map(a => a.athlete);
+  const values = sums.map(a => a.avg_rpe);
+  const bgColors = values.map(v => (v||0) >= 8.5 ? '#e63946' : (v||0) >= 7.5 ? '#f59e0b' : '#22c55e');
+
+  charts['rpe'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Avg RPE',
+        data: values,
+        backgroundColor: bgColors,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 10, ticks: { color: '#8fa0be', stepSize: 2 }, grid: { color: 'rgba(255,255,255,.05)' } },
+        x: { ticks: { color: '#8fa0be' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 // ── Compliance Week Navigation ──────────────────────────────────────────────
 let _complianceWeekOffset = 0; // 0 = current week, -1 = last week, etc.
 let _squadSessions = [];       // populated from API response
