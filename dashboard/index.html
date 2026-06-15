@@ -489,9 +489,15 @@ function renderCoachView(data){
       <div id="squadCalendarWrap" style="overflow-x:auto"></div>
     </div>
 
-    <div class="section-title">Session Compliance — This Week</div>
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span id="complianceWeekLabel">Session Compliance — This Week</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="stepComplianceWeek(-1)" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:14px;font-weight:700;cursor:pointer;line-height:1">‹</button>
+        <button onclick="stepComplianceWeek(1)" id="complianceNextBtn" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:14px;font-weight:700;cursor:pointer;line-height:1">›</button>
+      </div>
+    </div>
     <div class="card">
-      <div class="card-title">Did each athlete complete each session type this week?</div>
+      <div id="complianceWeekSubtitle" class="card-title">Did each athlete complete each session type this week?</div>
       <div id="complianceHeatmap"></div>
     </div>
 
@@ -528,7 +534,7 @@ function renderCoachView(data){
   `;
 
   // Compliance heatmap
-  renderComplianceHeatmap(sums, athletes, heatmap, sessionTypes);
+  renderComplianceHeatmap(sums, athletes, heatmap, sessionTypes, data.squad_sessions || []);
 
   // Wellness readiness panel
   renderWellnessPanel(sums);
@@ -834,22 +840,93 @@ function renderRpeTrendChart(rpeTrend, sums, athletes){
   });
 }
 
-function renderComplianceHeatmap(sums, athletes, heatmap, sessionTypes){
-  const container=document.getElementById('complianceHeatmap');
-  if(!container) return;
-  let html=`<div class="heatmap-headers">${sessionTypes.map(s=>`<span>${s}</span>`).join('')}</div><div class="heatmap-grid">`;
-  athletes.forEach(ath=>{
-    html+=`<div class="heatmap-row"><div class="heatmap-label">${ath}</div><div class="heatmap-cells">`;
-    sessionTypes.forEach(st=>{
-      const done=heatmap[ath]?.[st];
-      const cls=done?'done':'none';
-      const lbl=done?'✓':'—';
-      html+=`<div class="heatmap-cell ${cls}" title="${ath} — ${st}">${lbl}</div>`;
+// ── Compliance Week Navigation ──────────────────────────────────────────────
+let _complianceWeekOffset = 0; // 0 = current week, -1 = last week, etc.
+let _squadSessions = [];       // populated from API response
+let _complianceAthletes = [];
+let _complianceSessionTypes = ['Lower A', 'Lower B', 'Upper A', 'Upper B'];
+
+function getMondayOfWeek(offset) {
+  // Returns the Monday of the week (offset weeks from current)
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon...
+  const daysToMon = (day === 0) ? -6 : 1 - day; // distance to last Monday
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + daysToMon + offset * 7);
+  mon.setHours(0, 0, 0, 0);
+  return mon;
+}
+
+function stepComplianceWeek(delta) {
+  const newOffset = _complianceWeekOffset + delta;
+  if (newOffset > 0) return; // can't go into the future
+  _complianceWeekOffset = newOffset;
+  renderComplianceForCurrentWeek();
+}
+
+function renderComplianceForCurrentWeek() {
+  const mon = getMondayOfWeek(_complianceWeekOffset);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+
+  // Label
+  const fmt = d => d.toLocaleDateString('en-AU', { day:'numeric', month:'short' });
+  const isCurrentWeek = _complianceWeekOffset === 0;
+  const label = isCurrentWeek
+    ? `Session Compliance — This Week (${fmt(mon)}–${fmt(sun)})`
+    : `Session Compliance — Week of ${fmt(mon)}–${fmt(sun)}`;
+  document.getElementById('complianceWeekLabel').textContent = label;
+
+  // Subtitle
+  const subtitle = isCurrentWeek
+    ? 'Did each athlete complete each session type this week?'
+    : `Sessions logged ${fmt(mon)} – ${fmt(sun)}`;
+  document.getElementById('complianceWeekSubtitle').textContent = subtitle;
+
+  // Disable next btn when at current week
+  const nextBtn = document.getElementById('complianceNextBtn');
+  if (nextBtn) nextBtn.disabled = isCurrentWeek;
+  if (nextBtn) nextBtn.style.opacity = isCurrentWeek ? '0.35' : '1';
+
+  // Build heatmap from _squadSessions for this Mon–Sun range
+  const monStr = mon.toISOString().split('T')[0];
+  const sunStr = sun.toISOString().split('T')[0];
+
+  const heatmap = {};
+  for (const ath of _complianceAthletes) heatmap[ath] = {};
+
+  for (const s of _squadSessions) {
+    if (!s.date || s.date < monStr || s.date > sunStr) continue;
+    if (!heatmap[s.athlete]) heatmap[s.athlete] = {};
+    heatmap[s.athlete][s.session_type] = true;
+  }
+
+  // Render
+  const container = document.getElementById('complianceHeatmap');
+  if (!container) return;
+  const sessionTypes = _complianceSessionTypes;
+
+  let html = `<div class="heatmap-headers">${sessionTypes.map(s=>`<span>${s}</span>`).join('')}</div><div class="heatmap-grid">`;
+  _complianceAthletes.forEach(ath => {
+    html += `<div class="heatmap-row"><div class="heatmap-label">${ath}</div><div class="heatmap-cells">`;
+    sessionTypes.forEach(st => {
+      const done = heatmap[ath]?.[st];
+      const cls = done ? 'done' : 'none';
+      const lbl = done ? '✓' : '—';
+      html += `<div class="heatmap-cell ${cls}" title="${ath} — ${st}">${lbl}</div>`;
     });
-    html+=`</div></div>`;
+    html += `</div></div>`;
   });
-  html+=`</div>`;
-  container.innerHTML=html;
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function renderComplianceHeatmap(sums, athletes, heatmap, sessionTypes, squadSessions) {
+  // Store for week navigation
+  _complianceAthletes = athletes;
+  _complianceSessionTypes = sessionTypes || ['Lower A', 'Lower B', 'Upper A', 'Upper B'];
+  _squadSessions = squadSessions || [];
+  _complianceWeekOffset = 0;
+  renderComplianceForCurrentWeek();
 }
 
 async function renderComparison(){

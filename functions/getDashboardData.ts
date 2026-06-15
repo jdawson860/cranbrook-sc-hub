@@ -323,6 +323,15 @@ Deno.serve(async (req) => {
       };
     }
 
+    // Compact session list for client-side compliance history (date + athlete + session_type only)
+    const squadSessions = [...new Map(
+      allLogs.map(r => [`${r.timestamp?.split('T')[0]}|${r.athlete}|${r.session_type}`, {
+        date: r.timestamp?.split('T')[0],
+        athlete: r.athlete,
+        session_type: r.session_type,
+      }])
+    ).values()];
+
     return Response.json({
       ok: true,
       athletes,
@@ -338,6 +347,7 @@ Deno.serve(async (req) => {
       session_types: sessionTypes,
       squadCalendar,
       acwrByAthlete,
+      squad_sessions: squadSessions,
       individual: individualDetail,
       ...(individualDetail || {}),
     }, { status: 200, headers: cors });
