@@ -3026,12 +3026,75 @@ function loadCoreTestingView() {
     newRow.querySelector('input').focus();
   }
 
-  // ── Seed default rows ────────────────────────────────────────────────────
-  for(var r = 0; r < 8; r++) tbody.appendChild(makeCTRow(r));
+  // ── localStorage draft helpers ───────────────────────────────────────────
+  var CT_KEY = 'ct_draft_v1';
+
+  function saveDraft() {
+    var rows = document.querySelectorAll('#ctBody tr');
+    var rowData = [];
+    rows.forEach(function(tr) {
+      var obj = {};
+      tr.querySelectorAll('[data-field]').forEach(function(el) { obj[el.dataset.field] = el.value; });
+      rowData.push(obj);
+    });
+    try {
+      localStorage.setItem(CT_KEY, JSON.stringify({
+        date: (document.getElementById('ctDate') || {}).value || '',
+        rows: rowData,
+        at: Date.now()
+      }));
+    } catch(e) {}
+  }
+
+  function restoreDraft() {
+    try {
+      var raw = localStorage.getItem(CT_KEY);
+      if (!raw) return false;
+      var d = JSON.parse(raw);
+      if (!d || (Date.now() - (d.at||0)) > 7*24*60*60*1000) return false;
+      if (d.date) { var di = document.getElementById('ctDate'); if(di) di.value = d.date; }
+      var rowsData = d.rows || [];
+      if (!rowsData.length) return false;
+      var b = document.getElementById('ctBody');
+      b.innerHTML = '';
+      rowsData.forEach(function(obj, i) {
+        var tr = makeCTRow(i);
+        b.appendChild(tr);
+        tr.querySelectorAll('[data-field]').forEach(function(el) {
+          if (obj[el.dataset.field] !== undefined) el.value = obj[el.dataset.field];
+        });
+      });
+      while (document.querySelectorAll('#ctBody tr').length < 8) {
+        var b2 = document.getElementById('ctBody');
+        b2.appendChild(makeCTRow(b2.rows.length));
+      }
+      return true;
+    } catch(e) { return false; }
+  }
+
+  // ── Seed default rows OR restore draft ───────────────────────────────────
+  var wasDraftRestored = restoreDraft();
+  if (!wasDraftRestored) {
+    for(var r = 0; r < 8; r++) tbody.appendChild(makeCTRow(r));
+  } else {
+    var pill = document.createElement('span');
+    pill.innerHTML = '&#x1F4CB; Draft restored &nbsp;<span id="ctDiscard" style="cursor:pointer;opacity:.7;font-size:11px;text-decoration:underline">Discard</span>';
+    pill.style.cssText = 'background:rgba(59,130,246,.12);border:1px solid #3b82f6;color:#93c5fd;font-size:12px;font-weight:700;padding:5px 14px;border-radius:20px';
+    dateRow.appendChild(pill);
+    document.getElementById('ctDiscard').addEventListener('click', function() {
+      try { localStorage.removeItem(CT_KEY); } catch(e) {}
+      loadCoreTestingView();
+    });
+  }
+
+  // Autosave on any input/change inside the grid or date
+  document.getElementById('ctDate').addEventListener('change', saveDraft);
+  document.getElementById('ctBody').addEventListener('input',  saveDraft);
+  document.getElementById('ctBody').addEventListener('change', saveDraft);
 
   // ── Wire buttons ─────────────────────────────────────────────────────────
-  document.getElementById('ctAddBtnTop').addEventListener('click', addRow);
-  document.getElementById('ctAddBtnBot').addEventListener('click', addRow);
+  document.getElementById('ctAddBtnTop').addEventListener('click', function(){ addRow(); saveDraft(); });
+  document.getElementById('ctAddBtnBot').addEventListener('click', function(){ addRow(); saveDraft(); });
 
   async function doSave() {
     var rows = document.querySelectorAll('#ctBody tr');
@@ -3100,6 +3163,8 @@ function loadCoreTestingView() {
         '&#x2705; Saved ' + saved + ' athlete' + (saved!==1?'s':'') + ' to the database &amp; Google Sheet! ' +
         '<button id="ctClearBtn" style="margin-left:16px;background:none;border:1.5px solid #166534;color:#166534;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Clear &amp; Start New</button>' +
         '</div>';
+      // Clear draft on successful save
+      try { localStorage.removeItem('ct_draft_v1'); } catch(e) {}
       document.getElementById('ctClearBtn').addEventListener('click', loadCoreTestingView);
     } else {
       st2.innerHTML =
