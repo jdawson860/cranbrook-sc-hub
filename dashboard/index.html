@@ -706,11 +706,15 @@ function filterErgSessions() {
     return;
   }
 
-  tbody.innerHTML = sessions.map(s => {
+  // Store in lookup map so we can reference by index safely (avoids JSON-in-onclick escaping issues)
+  window._ergSessionMap = {};
+  sessions.forEach((s,i) => { window._ergSessionMap[i] = s; });
+
+  tbody.innerHTML = sessions.map((s,i) => {
     const date = (s.timestamp||'').slice(0,10);
     const dist = s.total_distance ? (s.total_distance >= 1000 ? (s.total_distance/1000).toFixed(2)+'km' : s.total_distance+'m') : '—';
     const rpeClass = (s.rpe||0) >= 8.5 ? 'rpe-high' : (s.rpe||0) >= 7.5 ? 'rpe-mid' : 'rpe-low';
-    return `<tr class="clickable-row" onclick="openErgSession(${JSON.stringify(s).replace(/"/g,'&quot;')})" title="View erg session">
+    return `<tr class="clickable-row" onclick="openErgSessionById(${i})" title="View erg session">
       <td style="font-weight:600">${date}</td>
       <td><span class="athlete-name">${s.athlete||'—'}</span></td>
       <td>${s.workout_type||'—'}</td>
@@ -1493,6 +1497,12 @@ async function openGymSession(athlete, date, session_type){
 }
 
 // Open an ERG session detail modal
+function openErgSessionById(idx){
+  const session = window._ergSessionMap && window._ergSessionMap[idx];
+  if(!session){ console.error('Erg session not found for index', idx); return; }
+  openErgSession(session);
+}
+
 function openErgSession(session){
   const modal = document.getElementById('sessionModal');
   const date = session.timestamp?.slice(0,10) || '—';
