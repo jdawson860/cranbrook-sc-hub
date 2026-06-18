@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
       stroke_rate,
       rpe,
       notes,
+      image_url,
     } = body;
 
     const update: Record<string, any> = {};
@@ -34,6 +35,7 @@ Deno.serve(async (req) => {
     if (stroke_rate    !== undefined) update.stroke_rate    = stroke_rate ? Number(stroke_rate) : null;
     if (rpe            !== undefined) update.rpe            = rpe ? Number(rpe) : null;
     if (notes          !== undefined) update.notes          = notes || null;
+    if (image_url      !== undefined) update.image_url      = image_url || null;
 
     await base44.asServiceRole.entities.ErgSession.update(id, update);
 

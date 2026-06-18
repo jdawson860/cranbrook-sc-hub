@@ -1582,13 +1582,68 @@ function openErgSession(session){
     bodyHtml += `<div class="modal-section"><div class="modal-section-title">Notes</div><div class="erg-notes">${session.notes}</div></div>`;
   }
 
-  // ── Session image ──────────────────────────────────────────────────
+  // ── Session image + upload ─────────────────────────────────────────
   if(session.image_url){
-    bodyHtml += `<div class="modal-section"><div class="modal-section-title">Session Image</div><img src="${session.image_url}" style="width:100%;border-radius:10px;margin-top:4px" /></div>`;
+    bodyHtml += `<div class="modal-section"><div class="modal-section-title">Erg Screen</div><img src="${session.image_url}" style="width:100%;border-radius:10px;margin-top:4px" /></div>`;
+  } else {
+    // Show upload zone for coaches to attach screen image
+    bodyHtml += `<div class="modal-section" id="ergImgUploadSection">
+      <div class="modal-section-title">Erg Screen</div>
+      <label id="ergImgLabel" style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:2px dashed var(--border);border-radius:10px;color:var(--muted);font-size:13px;transition:border-color .2s">
+        <span style="font-size:20px">📷</span>
+        <span id="ergImgLabelText">Tap to attach erg screen photo</span>
+        <input type="file" accept="image/*" style="display:none" onchange="handleErgImageUpload(event,'${session.id}')">
+      </label>
+      <div id="ergImgPreview" style="margin-top:8px;display:none"><img id="ergImgPreviewImg" style="width:100%;border-radius:10px" /></div>
+    </div>`;
   }
 
   document.getElementById('modalBody').innerHTML = bodyHtml;
   modal.classList.remove('hidden');
+}
+
+// ── ERG IMAGE UPLOAD ───────────────────────────────────────────────────────
+async function handleErgImageUpload(event, sessionId){
+  const file = event.target.files[0];
+  if(!file) return;
+  const label = document.getElementById('ergImgLabel');
+  const labelText = document.getElementById('ergImgLabelText');
+  const preview = document.getElementById('ergImgPreview');
+  const previewImg = document.getElementById('ergImgPreviewImg');
+
+  labelText.textContent = 'Uploading…';
+  if(label) label.style.borderColor = 'var(--accent)';
+
+  try {
+    // Convert to base64 for upload via backend
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result; // data:image/...;base64,...
+      // Upload via extractErgImage endpoint (it can handle raw upload) — 
+      // or use a direct upload approach via fetch to a public CDN
+      // We'll post to updateErgSession with a data URL and let the backend store it
+      const resp = await fetch('https://superagent-84188511.base44.app/functions/uploadErgImage', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ image_base64: base64.split(',')[1], session_id: sessionId, mime_type: file.type })
+      });
+      const data = await resp.json();
+      if(data.ok && data.image_url){
+        previewImg.src = data.image_url;
+        preview.style.display = 'block';
+        labelText.textContent = '✅ Screen attached!';
+        // Refresh erg data in background
+        if(typeof loadErgView === 'function') setTimeout(loadErgView, 500);
+      } else {
+        labelText.textContent = '❌ Upload failed — try again';
+        if(label) label.style.borderColor = '#e63946';
+      }
+    };
+    reader.readAsDataURL(file);
+  } catch(err){
+    labelText.textContent = '❌ Upload error';
+    console.error(err);
+  }
 }
 
 
