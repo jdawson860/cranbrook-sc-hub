@@ -1,4 +1,9 @@
 // Extracts erg workout data from a Concept2 screen photo using GPT-4o vision
+// Also uploads the image to storage and returns image_url so it's saved with the session
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+
+const APP_ID = "6a2139cf1719e3fb84188511";
+
 Deno.serve(async (req) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -8,9 +13,35 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
   try {
+    const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => null);
     if (!body?.image_base64) {
       return Response.json({ error: 'No image provided' }, { status: 400, headers: cors });
+    }
+
+    const { image_base64, athlete = 'unknown' } = body;
+
+    // ── 1. Upload image to storage (best-effort, don't fail extraction if this fails) ──
+    let image_url: string | null = null;
+    try {
+      const imageBytes = Uint8Array.from(atob(image_base64), c => c.charCodeAt(0));
+      const filename = `erg_screen_${athlete}_${Date.now()}.jpg`;
+      const serviceToken = Deno.env.get('BASE44_SERVICE_TOKEN') || '';
+      const uploadResp = await fetch(`https://app.base44.com/api/apps/${APP_ID}/storage/upload`, {
+        method: 'POST',
+        headers: {
+          'api_key': serviceToken,
+          'Content-Type': 'image/jpeg',
+          'X-Filename': filename,
+        },
+        body: imageBytes,
+      });
+      if (uploadResp.ok) {
+        const uploadData = await uploadResp.json();
+        image_url = uploadData.file_url || uploadData.url || uploadData.public_url || null;
+      }
+    } catch (_) {
+      // Image upload failed silently — extraction still proceeds
     }
 
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
@@ -19,6 +50,7 @@ Deno.serve(async (req) => {
         ok: false,
         error: 'Vision AI not configured',
         fallback: true,
+        image_url,
         message: 'Photo extraction unavailable — please use manual entry below.'
       }, { status: 200, headers: cors });
     }
@@ -66,7 +98,7 @@ Respond ONLY with a valid JSON object. No explanation, no markdown, no code fenc
             {
               type: 'image_url',
               image_url: {
-                url: `data:image/jpeg;base64,${body.image_base64}`,
+                url: `data:image/jpeg;base64,${image_base64}`,
                 detail: 'high'
               }
             }
@@ -84,6 +116,7 @@ Respond ONLY with a valid JSON object. No explanation, no markdown, no code fenc
       return Response.json({
         ok: false,
         fallback: true,
+        image_url,
         message: userMessage,
         error: errText,
       }, { status: 200, headers: cors });
@@ -103,7 +136,7 @@ Respond ONLY with a valid JSON object. No explanation, no markdown, no code fenc
       }
     }
 
-    return Response.json({ ok: true, data }, { status: 200, headers: cors });
+    return Response.json({ ok: true, data, image_url }, { status: 200, headers: cors });
 
   } catch (error: any) {
     return Response.json({
