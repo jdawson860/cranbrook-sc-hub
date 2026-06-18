@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
 
     if (body?.action === 'list') {
       const all = await base44.asServiceRole.entities.AthleteProfile.list();
-      return Response.json({ ok: true, profiles: all }, { headers: cors });
+      return Response.json({ ok: true, profiles: all, athletes: all }, { headers: cors });
     }
 
     if (body?.action === 'save') {
