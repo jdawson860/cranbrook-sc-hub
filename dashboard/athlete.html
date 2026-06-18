@@ -493,7 +493,9 @@ const api = (fn, body) => fetch(`${BASE}/${fn}`, {
   body:JSON.stringify(body)
 }).then(r=>r.json());
 
-let ATHLETES = []; // populated from AthleteProfile entity on load
+// Fallback list of athletes known from session data (in case AthleteProfile fetch fails)
+const ATHLETES_FALLBACK = ['AF','RR','JC','MA','TL','CC','SK','AS','HM','TD','JDT'];
+let ATHLETES = [...ATHLETES_FALLBACK];
 
 const EXERCISES = {
   // T2 W7-10 — Lower Body Session 1 (in program order)
@@ -624,14 +626,18 @@ function cancelAthletePicker() {
 }
 
 async function buildAthGrid() {
-  // Fetch athletes from AthleteProfile entity
+  // Fetch athletes from AthleteProfile entity and merge with fallback list
   try {
     const res = await api('athleteProfile', { action: 'list' });
-    if (res && Array.isArray(res.athletes) && res.athletes.length > 0) {
-      ATHLETES = res.athletes.map(a => a.athlete_id).sort();
+    if (res && Array.isArray(res.athletes)) {
+      const profileIds = res.athletes.map(a => a.athlete_id);
+      // Merge: start with fallback, add any new ones from profiles
+      const merged = [...new Set([...ATHLETES_FALLBACK, ...profileIds])];
+      ATHLETES = merged.sort();
     }
   } catch(e) {
     console.warn('Could not load athlete list, using fallback:', e);
+    ATHLETES = [...ATHLETES_FALLBACK];
   }
   document.getElementById('athGrid').innerHTML = ATHLETES.map(a =>
     `<button class="ath-btn" onclick="selectAthlete('${a}')">${a}</button>`
