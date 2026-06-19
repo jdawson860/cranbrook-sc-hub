@@ -16,7 +16,7 @@ async function fetchHubLogs(token: string): Promise<any[]> {
   // Headers: Timestamp, Date, Athlete, Session Type, Exercise, Set, Reps, Load, RPE
   const logs: any[] = [];
   for (const row of rows.slice(1)) {
-    const athlete = row[2]?.trim();
+    const athlete = row[2]?.trim().toUpperCase();
     const session_type = row[3]?.trim();
     const exercise = row[4]?.trim();
     if (!athlete || !session_type || !exercise) continue;
@@ -188,7 +188,8 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
-    const { athlete } = body;
+    const { athlete: athleteRaw } = body;
+    const athlete = athleteRaw ? athleteRaw.toUpperCase() : athleteRaw;
 
     const { accessToken: sheetsToken } = await base44.asServiceRole.connectors.getConnection('googlesheets');
     if (!sheetsToken) throw new Error("Google Sheets not connected");
@@ -308,7 +309,7 @@ Deno.serve(async (req) => {
       const latestACWR = acwrData.length ? acwrData[acwrData.length - 1] : null;
       const sessionHistory = buildSessionHistory(logs);
       const exerciseProgressions = buildExerciseProgressions(logs);
-      const athleteWellness = allWellness.filter((w: any) => w.athlete === athlete)
+      const athleteWellness = allWellness.filter((w: any) => w.athlete?.toUpperCase() === athlete)
         .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 14);
 
