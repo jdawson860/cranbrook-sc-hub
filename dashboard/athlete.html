@@ -584,6 +584,8 @@ const EXTRAS = {
 
 const TIME_EXERCISES = ['GHD Hold','Prone Plank','Side Plank','GHD Raise','Hollow Hold','GHD Anti-Lateral Flexion Hold','SB Roll Out + Plank Hold','Pallof Press ISO Hold'];
 const BAND_EXERCISES = ['Chin Ups','Pull Up'];
+const SL_EXERCISES = ['RDL','Leg press','Eccentric hamstring sliders','Leg extension'];
+function isSLEx(name) { return SL_EXERCISES.some(t => name.toLowerCase().includes(t.toLowerCase())); }
 
 // ── STATE ─────────────────────────────────────────────────────────────
 let currentAthlete = localStorage.getItem('cranbrook_athlete') || null;
@@ -766,6 +768,7 @@ function updateField(exIdx, setIdx, field, val) {
 
 function isTimeEx(name) { return TIME_EXERCISES.some(t => name.includes(t)); }
 function isBandEx(name) { return BAND_EXERCISES.some(t => name.includes(t)); }
+function toggleSL(ei) { exercises[ei].sl = !exercises[ei].sl; saveSession(); renderExercises(); }
 
 async function fetchAthleteHistory(ath) {
   try {
@@ -804,6 +807,9 @@ function renderExercises() {
     return;
   }
   container.innerHTML = exercises.map((ex, ei) => {
+    const canSL = isSLEx(ex.name);
+    const isSL = canSL && !!ex.sl;
+    const effName = isSL ? 'SL ' + ex.name : ex.name;
     const isTime = isTimeEx(ex.name);
     const isBand = isBandEx(ex.name);
     const repsLabel = isTime ? 'Time (s)' : 'Reps';
@@ -811,7 +817,10 @@ function renderExercises() {
 
     return `<div class="ex-block">
       <div class="ex-block-head">
-        <div class="ex-name-lbl">${ex.name}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="ex-name-lbl">${effName}</div>
+          ${canSL ? `<button onclick="toggleSL(${ei})" style="padding:2px 9px;font-size:11px;font-weight:800;border-radius:20px;border:2px solid ${isSL ? '#1a56db' : '#d1d5db'};background:${isSL ? '#1a56db' : '#f3f4f6'};color:${isSL ? '#fff' : '#6b7280'};cursor:pointer;letter-spacing:.5px;transition:all .15s">${isSL ? 'SL' : 'DL'}</button>` : ''}
+        </div>
         <button class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:12px;color:var(--red);border-color:var(--red)" onclick="removeExercise(${ei})">Remove</button>
       </div>
       <div class="set-header">
@@ -820,8 +829,8 @@ function renderExercises() {
       ${ex.sets.map((s, si) => `
         <div class="set-row">
           <div class="set-num">${si+1}</div>
-          <input class="set-input" type="${isTime?'number':'number'}" inputmode="numeric" placeholder="${pbMap[ex.name]?.reps != null ? 'PB: '+pbMap[ex.name].reps+(isTime?' sec':' reps') : (isTime?'sec':'reps')}" value="${s.reps}" oninput="updateField(${ei},${si},'reps',this.value)"/>
-          <input class="set-input" type="text" inputmode="decimal" placeholder="${pbMap[ex.name]?.load != null ? 'PB: '+pbMap[ex.name].load+'kg' : (isBand?'band/+kg':'kg')}" value="${s.load}" oninput="updateField(${ei},${si},'load',this.value)"/>
+          <input class="set-input" type="${isTime?'number':'number'}" inputmode="numeric" placeholder="${pbMap[effName]?.reps != null ? 'PB: '+pbMap[effName].reps+(isTime?' sec':' reps') : (isTime?'sec':'reps')}" value="${s.reps}" oninput="updateField(${ei},${si},'reps',this.value)"/>
+          <input class="set-input" type="text" inputmode="decimal" placeholder="${pbMap[effName]?.load != null ? 'PB: '+pbMap[effName].load+'kg' : (isBand?'band/+kg':'kg')}" value="${s.load}" oninput="updateField(${ei},${si},'load',this.value)"/>
           <select class="set-input rpe-input" onchange="updateField(${ei},${si},'rpe',this.value)">
             <option value="">RPE</option>
             ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}"${s.rpe==n?' selected':''}>${n}</option>`).join('')}
@@ -850,11 +859,12 @@ async function submitSession() {
       const s = ex.sets[i];
       // Skip completely blank sets (no reps AND no load)
       if (!s.reps && !s.load) continue;
+      const effName = (isSLEx(ex.name) && ex.sl) ? 'SL ' + ex.name : ex.name;
       records.push({
         timestamp: ts,
         athlete: currentAthlete,
         session_type: currentSession.session_type,
-        exercise: ex.name,
+        exercise: effName,
         set_number: i + 1,
         reps: s.reps ? Number(s.reps) : null,
         load: s.load || null,
