@@ -1007,13 +1007,12 @@ function renderComplianceForCurrentWeek() {
       const dates = heatmap[ath]?.[st];
       if (dates && dates.length > 0) {
         const sortedDates = [...dates].sort();
-        const dateLabels = sortedDates.map(d => fmtComplianceDate(d)).join(', ');
         const firstDate = sortedDates[0];
-        const countBadge = sortedDates.length > 1 ? `<span style="font-size:10px;font-weight:900;background:rgba(255,255,255,0.3);border-radius:8px;padding:1px 5px">×${sortedDates.length}</span>` : '';
-        html += `<div class="heatmap-cell done" title="View ${ath} — ${st} — ${dateLabels}" onclick="openGymSession('${ath}','${firstDate}','${st}')" style="cursor:pointer;flex-direction:column;gap:2px">
+        const allDateLabels = sortedDates.map(d => fmtComplianceDate(d)).join(' & ');
+        const titleLabel = sortedDates.map(d => fmtComplianceDate(d)).join(', ');
+        html += `<div class="heatmap-cell done" title="View ${ath} — ${st} — ${titleLabel}" onclick="openGymSession('${ath}','${firstDate}','${st}')" style="cursor:pointer;flex-direction:column;gap:2px">
           <span style="font-size:13px;font-weight:800">✓</span>
-          <span style="font-size:11px;font-weight:800;letter-spacing:.2px">${fmtComplianceDate(firstDate)}</span>
-          ${countBadge}
+          <span style="font-size:11px;font-weight:800;letter-spacing:.2px">${allDateLabels}</span>
         </div>`;
       } else {
         html += `<div class="heatmap-cell none" title="${ath} — ${st} — not logged">—</div>`;
