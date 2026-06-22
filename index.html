@@ -970,15 +970,15 @@ function renderComplianceForCurrentWeek() {
   const monStr = localDateStr(mon);
   const sunStr = localDateStr(sun);
 
-  const heatmap = {}; // athlete -> session_type -> date string
+  const heatmap = {}; // athlete -> session_type -> array of dates
   for (const ath of _complianceAthletes) heatmap[ath] = {};
 
   for (const s of _squadSessions) {
     if (!s.date || s.date < monStr || s.date > sunStr) continue;
     if (!heatmap[s.athlete]) heatmap[s.athlete] = {};
-    // Keep the actual date so we can show it and use it to open session
-    if (!heatmap[s.athlete][s.session_type]) {
-      heatmap[s.athlete][s.session_type] = s.date;
+    if (!heatmap[s.athlete][s.session_type]) heatmap[s.athlete][s.session_type] = [];
+    if (!heatmap[s.athlete][s.session_type].includes(s.date)) {
+      heatmap[s.athlete][s.session_type].push(s.date);
     }
   }
 
@@ -987,7 +987,7 @@ function renderComplianceForCurrentWeek() {
   const activeValue = document.getElementById('activeWeekValue');
   if (activeLabel && activeValue) {
     const athletesThisWeek = _complianceAthletes.filter(a =>
-      _complianceSessionTypes.some(st => heatmap[a]?.[st])
+      _complianceSessionTypes.some(st => heatmap[a]?.[st]?.length > 0)
     ).length;
     const total = _complianceAthletes.length;
     const weekLabel = isCurrentWeek ? 'Active This Week' : `Active (${fmt(mon)}–${fmt(sun)})`;
@@ -1004,12 +1004,16 @@ function renderComplianceForCurrentWeek() {
   _complianceAthletes.forEach(ath => {
     html += `<div class="heatmap-row"><div class="heatmap-label">${ath}</div><div class="heatmap-cells">`;
     sessionTypes.forEach(st => {
-      const date = heatmap[ath]?.[st];
-      if (date) {
-        const dateLabel = fmtComplianceDate(date);
-        html += `<div class="heatmap-cell done" title="View ${ath} — ${st} — ${dateLabel}" onclick="openGymSession('${ath}','${date}','${st}')" style="cursor:pointer;flex-direction:column;gap:2px">
+      const dates = heatmap[ath]?.[st];
+      if (dates && dates.length > 0) {
+        const sortedDates = [...dates].sort();
+        const dateLabels = sortedDates.map(d => fmtComplianceDate(d)).join(', ');
+        const firstDate = sortedDates[0];
+        const countBadge = sortedDates.length > 1 ? `<span style="font-size:10px;font-weight:900;background:rgba(255,255,255,0.3);border-radius:8px;padding:1px 5px">×${sortedDates.length}</span>` : '';
+        html += `<div class="heatmap-cell done" title="View ${ath} — ${st} — ${dateLabels}" onclick="openGymSession('${ath}','${firstDate}','${st}')" style="cursor:pointer;flex-direction:column;gap:2px">
           <span style="font-size:13px;font-weight:800">✓</span>
-          <span style="font-size:11px;font-weight:800;letter-spacing:.2px">${dateLabel}</span>
+          <span style="font-size:11px;font-weight:800;letter-spacing:.2px">${fmtComplianceDate(firstDate)}</span>
+          ${countBadge}
         </div>`;
       } else {
         html += `<div class="heatmap-cell none" title="${ath} — ${st} — not logged">—</div>`;
