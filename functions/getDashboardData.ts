@@ -67,7 +67,7 @@ function buildDailyLoad(logs: any[]): Record<string, number> {
   const daily: Record<string, number> = {};
   for (const r of logs) {
     const date = r.timestamp?.split('T')[0];
-    if (!date) continue;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue; // only valid YYYY-MM-DD
     const load = parseFloat(r.load);
     const reps = parseFloat(r.reps) || 1;
     if (!isNaN(load)) daily[date] = (daily[date] || 0) + load * reps;
@@ -351,9 +351,12 @@ Deno.serve(async (req) => {
     // Use AEST local date (UTC+10) to avoid UTC day-shift causing Sunday bleed
     const toAESTDate = (ts: string) => {
       if (!ts) return '';
-      const d = new Date(ts);
-      const aest = new Date(d.getTime() + 10 * 60 * 60 * 1000);
-      return aest.toISOString().split('T')[0];
+      try {
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return '';
+        const aest = new Date(d.getTime() + 10 * 60 * 60 * 1000);
+        return aest.toISOString().split('T')[0];
+      } catch { return ''; }
     };
     const squadSessions = [...new Map(
       allLogs.map(r => {
@@ -387,6 +390,6 @@ Deno.serve(async (req) => {
     }, { status: 200, headers: cors });
 
   } catch (error: any) {
-    return Response.json({ ok: false, error: error.message }, { status: 500, headers: cors });
+    return Response.json({ ok: false, error: error.message, stack: error.stack }, { status: 500, headers: cors });
   }
 });
