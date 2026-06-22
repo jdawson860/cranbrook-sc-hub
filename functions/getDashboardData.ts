@@ -25,24 +25,19 @@ async function fetchHubLogs(token: string): Promise<any[]> {
     let isoDate = '';
     if (dateStr) {
       try {
-        // Handle DD/MM/YYYY or DD/MM/YYYY HH:MM:SS (Australian Google Form format)
-        const ddmm = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-        if (ddmm) {
-          const [, dd, mm, yyyy] = ddmm;
+        // M/D/YYYY or MM/DD/YYYY — Google Sheets US locale (month first)
+        const mdyyyy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (mdyyyy) {
+          const [, mm, dd, yyyy] = mdyyyy;
           isoDate = `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          isoDate = dateStr; // already YYYY-MM-DD
         } else {
-          // Try ISO or other parseable formats, but force local-date interpretation
+          // ISO timestamp — offset to AEST (UTC+10) to get correct local date
           const d = new Date(dateStr);
           if (!isNaN(d.getTime())) {
-            // Avoid UTC day-shift: if no time component, parse as local
-            const parts = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            if (parts) {
-              isoDate = dateStr; // already YYYY-MM-DD, use as-is
-            } else {
-              // Has time — offset to AEST (UTC+10) to get correct local date
-              const aest = new Date(d.getTime() + 10 * 60 * 60 * 1000);
-              isoDate = aest.toISOString().split('T')[0];
-            }
+            const aest = new Date(d.getTime() + 10 * 60 * 60 * 1000);
+            isoDate = aest.toISOString().split('T')[0];
           }
         }
       } catch {}
