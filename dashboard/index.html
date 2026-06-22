@@ -347,6 +347,14 @@
 </div>
 
 <script>
+function fmtSecs(s) {
+  if (s == null || s === '' || isNaN(Number(s))) return '—';
+  const n = Math.round(Number(s));
+  const m = Math.floor(n / 60);
+  const sec = String(n % 60).padStart(2, '0');
+  return m > 0 ? `${m}:${sec}` : `0:${sec}`;
+}
+
 const API_SC    = 'https://superagent-84188511.base44.app/functions/getDashboardData';
 const API_ERG   = 'https://superagent-84188511.base44.app/functions/getErgData';
 const API_TEST  = 'https://superagent-84188511.base44.app/functions/getTestingData';
@@ -754,10 +762,10 @@ async function loadTestingView() {
         return `<tr>
           <td style="font-weight:700;color:${rankColor}">${rank}</td>
           <td class="athlete-name">${a.athlete||'—'}</td>
-          <td style="font-family:monospace;font-weight:700">${s.hollow_hold != null ? s.hollow_hold+'s' : '—'}</td>
-          <td style="font-family:monospace;font-weight:700">${s.prone_plank != null ? s.prone_plank+'s' : '—'}</td>
-          <td style="font-family:monospace">${s.side_plank_left != null ? s.side_plank_left+'s' : '—'}</td>
-          <td style="font-family:monospace">${s.side_plank_right != null ? s.side_plank_right+'s' : '—'}</td>
+          <td style="font-family:monospace;font-weight:700">${s.hollow_hold != null ? fmtSecs(s.hollow_hold) : '—'}</td>
+          <td style="font-family:monospace;font-weight:700">${s.prone_plank != null ? fmtSecs(s.prone_plank) : '—'}</td>
+          <td style="font-family:monospace">${s.side_plank_left != null ? fmtSecs(s.side_plank_left) : '—'}</td>
+          <td style="font-family:monospace">${s.side_plank_right != null ? fmtSecs(s.side_plank_right) : '—'}</td>
           <td style="color:var(--muted);font-size:11px">${a.testsCompleted||0}/4</td>
         </tr>`;
       }).join('');
@@ -2512,7 +2520,7 @@ async function runCmpTesting() {
       <div style="font-size:11px;font-weight:700;color:${COMPARE_COLORS[i]};margin-bottom:4px">
         <span class="cmp-ath-dot" style="background:${COMPARE_COLORS[i]}"></span>${s.ath}
       </div>
-      <div style="font-size:20px;font-weight:800;color:var(--navy)">${s.hollow_hold!=null?s.hollow_hold+'s':'No data'}</div>
+      <div style="font-size:20px;font-weight:800;color:var(--navy)">${s.hollow_hold!=null?fmtSecs(s.hollow_hold):'No data'}</div>
       <div style="font-size:11px;color:var(--muted)">Hollow hold · ${s.date}</div>
       <div style="font-size:12px;margin-top:4px">${s.height!=null?s.height+'cm':'—'} · ${s.weight!=null?s.weight+'kg':'—'}</div>
     </div>`;
