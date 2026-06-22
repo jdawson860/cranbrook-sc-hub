@@ -1,14 +1,10 @@
 // getDashboardData v6 — reads directly from Athlete Hub Responses Google Sheet
-import { createClient } from 'npm:@base44/sdk@0.8.31';
 
-async function getSheetsToken(): Promise<string> {
-  // Use service token — works without a user session (called from public GitHub Pages)
-  const serviceToken = Deno.env.get("BASE44_SERVICE_TOKEN");
-  if (!serviceToken) throw new Error("BASE44_SERVICE_TOKEN not set");
-  const base44 = createClient({ appId: "6a2139cf1719e3fb84188511", apiKey: serviceToken });
-  const { accessToken } = await base44.asServiceRole.connectors.getConnection('googlesheets');
-  if (!accessToken) throw new Error("Google Sheets connector not connected");
-  return accessToken;
+function getSheetsToken(): string {
+  // Use pre-stored OAuth token from env — refreshed periodically by the agent
+  const token = Deno.env.get("GOOGLESHEETS_ACCESS_TOKEN");
+  if (!token) throw new Error("GOOGLESHEETS_ACCESS_TOKEN not set");
+  return token;
 }
 
 const SHEET_ID = "1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk";
@@ -218,7 +214,7 @@ Deno.serve(async (req) => {
     const { athlete: athleteRaw } = body;
     const athlete = athleteRaw ? athleteRaw.toUpperCase() : athleteRaw;
 
-    const sheetsToken = await getSheetsToken();
+    const sheetsToken = getSheetsToken();
     const allLogs = await fetchHubLogs(sheetsToken);
     const allWellness: any[] = []; // wellness not in hub sheet
 
