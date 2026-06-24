@@ -744,13 +744,30 @@ function startSession() {
   document.getElementById('scAthName').textContent = currentAthlete;
   document.getElementById('scSessName').textContent = st;
 
-  // Populate exercise dropdown (for adding extras not in the program)
-  const extrasList = (EXTRAS[st] || []).filter(e => !exercises.find(ex => ex.name === e));
-  document.getElementById('exSelect').innerHTML = '<option value="">— Add extra exercise —</option>' +
-    extrasList.map(e => `<option value="${e}">${e}</option>`).join('');
+  // Populate exercise dropdown — all programmed + extras, skip already-added ones
+  refreshExerciseDropdown(st);
 
   saveSession();
   renderExercises();
+}
+
+function refreshExerciseDropdown(st) {
+  if (!st) return;
+  const programmed = EXERCISES[st] || [];
+  const extras = EXTRAS[st] || [];
+  const added = exercises.map(e => e.name);
+  // Combine all unique exercises, programmed first then extras
+  const allExtras = [...new Set([...extras])].filter(e => !programmed.includes(e));
+  const availProgrammed = programmed.filter(e => !added.includes(e));
+  const availExtras = allExtras.filter(e => !added.includes(e));
+  let html = '<option value="">— Add exercise —</option>';
+  if (availProgrammed.length) {
+    html += `<optgroup label="── Program ──">` + availProgrammed.map(e => `<option value="${e}">${e}</option>`).join('') + '</optgroup>';
+  }
+  if (availExtras.length) {
+    html += `<optgroup label="── Extras ──">` + availExtras.map(e => `<option value="${e}">${e}</option>`).join('') + '</optgroup>';
+  }
+  document.getElementById('exSelect').innerHTML = html;
 }
 
 function addExercise() {
@@ -761,6 +778,7 @@ function addExercise() {
   document.getElementById('exSelect').value = '';
   saveSession();
   renderExercises();
+  refreshExerciseDropdown(currentSession?.session_type);
 }
 
 function addSet(exIdx) {
@@ -780,6 +798,7 @@ function removeExercise(exIdx) {
   exercises.splice(exIdx, 1);
   saveSession();
   renderExercises();
+  refreshExerciseDropdown(currentSession?.session_type);
 }
 
 function updateField(exIdx, setIdx, field, val) {
@@ -978,8 +997,7 @@ function loadStoredSession() {
     document.getElementById('scAthName').textContent = cs.athlete;
     document.getElementById('scSessName').textContent = cs.session_type;
     const exList = EXERCISES[cs.session_type] || [];
-    document.getElementById('exSelect').innerHTML = '<option value="">— Choose exercise —</option>' +
-      (EXTRAS[cs.session_type] || []).map(e=>`<option value="${e}">${e}</option>`).join('');
+    refreshExerciseDropdown(cs.session_type);
     renderExercises();
     // Re-fetch PBs in background so placeholders populate after reload
     if (cs.athlete) fetchAthleteHistory(cs.athlete);
