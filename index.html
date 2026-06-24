@@ -109,7 +109,7 @@
     .heatmap-cell.done{background:#00c8a0;color:#fff}
     .heatmap-cell.miss{background:#fce4ec;color:#c62828}
     .heatmap-cell.none{background:#f0f4f8;color:var(--muted)}
-    .heatmap-headers{display:flex;gap:4px;margin-bottom:8px;padding-left:36px}.heatmap-headers span{flex:1;text-align:center;font-size:12px;font-weight:800;color:var(--navy);letter-spacing:.5px;text-transform:uppercase}
+    .heatmap-headers{display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:0}.heatmap-header-spacer{width:28px;flex-shrink:0}.heatmap-headers-inner{display:flex;gap:4px;flex:1}.heatmap-headers-inner span{flex:1;text-align:center;font-size:12px;font-weight:800;color:var(--navy);letter-spacing:.5px;text-transform:uppercase}
 
     /* PB TABLE */
     .pb-table{width:100%;border-collapse:collapse}
@@ -1001,7 +1001,7 @@ function renderComplianceForCurrentWeek() {
   if (!container) return;
   const sessionTypes = _complianceSessionTypes;
 
-  let html = `<div class="heatmap-headers">${sessionTypes.map(s=>`<span>${s}</span>`).join('')}<span class="heatmap-total-hdr">Total</span></div><div class="heatmap-grid">`;
+  let html = `<div class="heatmap-headers"><div class="heatmap-header-spacer"></div><div class="heatmap-headers-inner">${sessionTypes.map(s=>`<span>${s}</span>`).join('')}</div><span class="heatmap-total-hdr">Total</span></div><div class="heatmap-grid">`;
   _complianceAthletes.forEach(ath => {
     let athWeekTotal = 0;
     html += `<div class="heatmap-row"><div class="heatmap-label">${ath}</div><div class="heatmap-cells">`;
