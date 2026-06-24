@@ -2,7 +2,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const SHEET_ID = '1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk';
-const SHEET_NAME_DASHBOARD = 'Core_Testing_Responses';
+const SHEET_NAME_DASHBOARD = 'Core Testing Dashboard Responses';
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 async function appendToSheet(token: string, row: any[], sheetName: string) {
