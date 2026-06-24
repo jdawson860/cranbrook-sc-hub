@@ -2,11 +2,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const SHEET_ID = '1_6BgfNQzfoxxRwf9oAYkto0FBX8ihUZgDFe3CRE-Xuk';
-const SHEET_NAME_DASHBOARD = 'Core Testing Dashboard Responses';
+const SHEET_NAME_DASHBOARD = 'Core_Testing_Responses';
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 async function appendToSheet(token: string, row: any[], sheetName: string) {
-  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A:K:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A:K?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -75,17 +75,20 @@ Deno.serve(async (req) => {
     try {
       const { accessToken: sheetsToken } = await base44.asServiceRole.connectors.getConnection('googlesheets');
 
+      // Column order: Timestamp | First Name | Last Name | Year Level |
+      // Height (cm) | Weight (kg) | Hollow Hold (s) | Prone Plank (s) |
+      // Side Plank Left (s) | Side Plank Right (s) | Testing Date
       const row = [
         timestamp,
         firstName,
         lastName,
         record.year_level       ?? '',
+        record.height           ?? '',
+        record.weight           ?? '',
+        record.hollow_hold      ?? '',
         record.prone_plank      ?? '',
         record.side_plank_left  ?? '',
         record.side_plank_right ?? '',
-        record.hollow_hold      ?? '',
-        record.height           ?? '',
-        record.weight           ?? '',
         displayDate,             // Testing Date (DD/MM/YYYY)
       ];
 
