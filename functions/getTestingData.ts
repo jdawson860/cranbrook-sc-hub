@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
           const val = raw != null && !isNaN(Number(raw)) ? Number(raw) : 0;
           scores[m.key] = Number(a[m.key] ?? null);
           totalSecs += val;
-          if (raw != null && !isNaN(Number(raw)) && Number(raw) > 0) testsCompleted++;
+          if (raw != null && !isNaN(Number(raw))) testsCompleted++;  // count if data entered, even 0
         }
 
         // compositeZ field reused as total seconds for backward compat with frontend sort
