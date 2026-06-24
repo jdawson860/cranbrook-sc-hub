@@ -72,38 +72,33 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── Build per-athlete composite Z-score ──────────────────────────
+      // ── Build per-athlete composite score (raw sum of all metrics) ──
       const ranked = athletes.map(a => {
         const scores: Record<string, number> = {};
-        let zSum = 0;
-        let zCount = 0;
+        let totalSecs = 0;
         let testsCompleted = 0;
 
         for (const m of METRICS) {
           const raw = a[m.key];
-          if (raw != null && !isNaN(Number(raw)) && metricStats[m.key]) {
-            scores[m.key] = Number(raw);
-            testsCompleted++;
-            const { mean: mu, std: sd } = metricStats[m.key];
-            const z = (Number(raw) - mu) / sd;
-            // higherBetter: positive z = above average = good
-            zSum += m.higherBetter ? z : -z;
-            zCount++;
-          }
+          const val = raw != null && !isNaN(Number(raw)) ? Number(raw) : 0;
+          scores[m.key] = Number(a[m.key] ?? null);
+          totalSecs += val;
+          if (raw != null && !isNaN(Number(raw)) && Number(raw) > 0) testsCompleted++;
         }
 
-        const compositeZ = zCount > 0 ? parseFloat((zSum / zCount).toFixed(3)) : -999;
+        // compositeZ field reused as total seconds for backward compat with frontend sort
         return {
           athlete: (a.athlete_name || '').trim(),
-          compositeZ,
+          compositeZ: totalSecs,   // total seconds = composite score
+          totalSecs,
           testsCompleted,
           scores,
           lastTested: a.timestamp?.slice(0, 10) || null,
         };
       });
 
-      // Sort by compositeZ descending
-      ranked.sort((a, b) => b.compositeZ - a.compositeZ);
+      // Sort by total seconds descending
+      ranked.sort((a, b) => b.totalSecs - a.totalSecs);
       const overallRanking = ranked.map((a, idx) => ({ ...a, overallRank: idx + 1 }));
 
       // Keep metricRankings for compatibility (sorted per metric)
