@@ -1023,7 +1023,7 @@ function renderComplianceForCurrentWeek() {
         html += `<div class="heatmap-cell none" title="${ath} — ${st} — not logged">—</div>`;
       }
     });
-    html += `</div><div class="heatmap-total-box">${athWeekTotal > 0 ? athWeekTotal : '0'}</div></div>`;
+    html += `</div><div class="heatmap-total-box" style="${athWeekTotal >= 4 ? 'background:#10b981' : ''}">${athWeekTotal > 0 ? athWeekTotal : '0'}</div></div>`;
   });
   html += `</div>`;
   container.innerHTML = html;
