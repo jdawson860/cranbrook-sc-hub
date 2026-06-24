@@ -766,10 +766,10 @@ function renderTestingTable(yearGroups, sortKey, sortDir) {
   const COLS = [
     { key: 'overall',          label: '#',           numeric: true  },
     { key: 'athlete',          label: 'Athlete',     numeric: false },
-    { key: 'hollow_hold',      label: 'Hollow Hold', numeric: true  },
     { key: 'prone_plank',      label: 'Prone Plank', numeric: true  },
     { key: 'side_plank_left',  label: 'Side Plank L',numeric: true  },
     { key: 'side_plank_right', label: 'Side Plank R',numeric: true  },
+    { key: 'hollow_hold',      label: 'Hollow Hold', numeric: true  },
     { key: 'tests',            label: 'Tests',       numeric: true  },
   ];
 
@@ -817,10 +817,10 @@ function renderTestingTable(yearGroups, sortKey, sortDir) {
       return `<tr>
         <td style="font-weight:700;color:${rankColor}">${sortKey==='overall'?a.overallRank:idx+1}${sortKey==='overall'?zLabel:''}</td>
         <td class="athlete-name">${a.athlete||'—'}</td>
-        <td style="${cellStyle('hollow_hold')}">${s.hollow_hold != null ? fmtSecs(s.hollow_hold) : '—'}</td>
         <td style="${cellStyle('prone_plank')}">${s.prone_plank != null ? fmtSecs(s.prone_plank) : '—'}</td>
         <td style="${cellStyle('side_plank_left')}">${s.side_plank_left != null ? fmtSecs(s.side_plank_left) : '—'}</td>
         <td style="${cellStyle('side_plank_right')}">${s.side_plank_right != null ? fmtSecs(s.side_plank_right) : '—'}</td>
+        <td style="${cellStyle('hollow_hold')}">${s.hollow_hold != null ? fmtSecs(s.hollow_hold) : '—'}</td>
         <td style="color:var(--muted);font-size:11px">${a.testsCompleted||0}/4</td>
       </tr>`;
     }).join('');
