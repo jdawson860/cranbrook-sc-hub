@@ -55,7 +55,26 @@ async function fetchHubLogs(token: string): Promise<any[]> {
       rpe: rpe && !isNaN(rpe) ? rpe : null,
     });
   }
-  return logs;
+  // Deduplicate: for identical athlete/date/session/exercise/set combos,
+  // keep only the last non-empty entry (catches double-submit bugs)
+  const dedupMap = new Map<string, any>();
+  for (const r of logs) {
+    const key = `${r.athlete}|${r.timestamp.split('T')[0]}|${r.session_type}|${r.exercise}|${r.set_number}`;
+    const existing = dedupMap.get(key);
+    if (!existing) {
+      dedupMap.set(key, r);
+    } else {
+      // If loads are identical (or new one has load and old doesn't), keep new
+      const existLoad = existing.load?.toString().trim().toLowerCase();
+      const newLoad = r.load?.toString().trim().toLowerCase();
+      if (existLoad === newLoad) {
+        // Identical values — classic double submit, keep latest (last wins)
+        dedupMap.set(key, r);
+      }
+      // If loads differ, keep both (intentional re-entry, e.g. JDT/SK)
+    }
+  }
+  return [...dedupMap.values()];
 }
 
 function buildDailyLoad(logs: any[]): Record<string, number> {
@@ -260,7 +279,9 @@ Deno.serve(async (req) => {
         : null;
       const wkLoad = recent.reduce((a, r) => { const l = parseFloat(r.load); return a + (isNaN(l) ? 0 : l * (parseFloat(r.reps) || 1)); }, 0);
       const lastLog = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-      const daysSinceLast = lastLog ? Math.floor((now.getTime() - new Date(lastLog.timestamp).getTime()) / 86400000) : null;
+      const lastDate = lastLog ? lastLog.timestamp.split('T')[0] : null;
+      const todayStr = now.toISOString().split('T')[0];
+      const daysSinceLast = lastDate ? Math.floor((new Date(todayStr).getTime() - new Date(lastDate).getTime()) / 86400000) : null;
       const wellness = wellnessByAthlete[ath] || null;
 
       // session_counts: unique sessions per type (not raw set rows)
