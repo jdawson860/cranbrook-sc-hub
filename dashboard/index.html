@@ -619,8 +619,11 @@ function renderCoachView(data){
   
   window._acwrSquadData = squadACWR;
   window._acwrAthleteData = {};
+  // acwrByAthlete is returned at top-level from getDashboardData
+  const acwrByAth = coachData.acwrByAthlete || {};
   sums.forEach(a => {
-    window._acwrAthleteData[a.athlete] = (a.acwr_history || []).map(p => ({
+    const series = acwrByAth[a.athlete] || [];
+    window._acwrAthleteData[a.athlete] = series.map(p => ({
       date: p.date,
       acwr: p.acwr || 0,
       acute: p.acute || 0,
@@ -642,14 +645,15 @@ function renderCoachView(data){
 
 // ── Squad ACWR ─────────────────────────────────────────────────────────────
 function buildSquadACWR(sums) {
-  // Aggregate all athletes' acwr_history by date, return squad-avg series
+  // Aggregate all athletes' ACWR series from coachData.acwrByAthlete
+  const acwrByAth = (typeof coachData !== 'undefined' && coachData.acwrByAthlete) || {};
   const byDate = {};
-  (sums || []).forEach(a => {
-    (a.acwr_history || []).forEach(p => {
+  Object.values(acwrByAth).forEach(series => {
+    (series || []).forEach(p => {
       if (!byDate[p.date]) byDate[p.date] = { acute: [], chronic: [], acwr: [] };
       if (p.acute)   byDate[p.date].acute.push(p.acute);
       if (p.chronic) byDate[p.date].chronic.push(p.chronic);
-      if (p.acwr)    byDate[p.date].acwr.push(p.acwr);
+      if (p.acwr && p.acwr < 3) byDate[p.date].acwr.push(p.acwr);  // cap outliers
     });
   });
   const avg = arr => arr.length ? parseFloat((arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2)) : null;
