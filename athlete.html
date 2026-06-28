@@ -498,47 +498,41 @@ const ATHLETES_FALLBACK = ['AF','RR','JC','MA','TL','CC','SK','AS','HM','TD','JD
 let ATHLETES = [...ATHLETES_FALLBACK];
 
 const EXERCISES = {
-  // T2 W7-10 — Lower Body Session 1 (in program order)
+  // T2 W7-10 — Lower Body A (in program order)
   'Lower A': [
-    'BB High Pull',
-    'Hurdle Jump & Stick Landing',
-    'BB Back Squat (Heels Elevated)',
-    'Ankle Mobility Dorsiflexion',
-    'Front Foot Elevated Split Squat',
-    'GHD Anti-Lateral Flexion Hold',
-    'Eccentric Hamstring Sliders',
-    'Single Leg Calf Raise on Step',
-  ],
-  // T2 W7-10 — Lower Body Session 2 (in program order)
-  'Lower B': [
-    'BB RDL',
-    'SB Roll Out + Plank Hold',
-    'Leg Press',
-    'Hanging Straight Leg Raise',
+    'Heel Elevated BB Back Squat',
+    'GHD Back Extension',
     'Leg Extension',
-    'Landmine Rotation',
-    'Single Leg Hip Thrust',
-    'Single Leg Calf Raise on Step',
+    'Hanging Leg Raises',
+    'Torsonator Twist',
+    'Reverse Nordics',
   ],
-  // T2 W7-10 — Upper Body Session 1 (in program order)
+  // T2 W7-10 — Lower Body B (in program order)
+  'Lower B': [
+    'Leg Press',
+    'RDL',
+    'Leg Extension',
+    'Double Deadbug With Plate',
+    'Seated Leg Raises',
+    'Reverse Hyperextension',
+  ],
+  // T2 W7-10 — Upper Body A (in program order)
   'Upper A': [
-    'Chin Ups',
-    'Bench Press',
-    'Single Arm DB Row',
-    'Incline DB Bench Press',
-    'Reverse DB Flys (Chest Supported)',
-    'Plate Weighted Sit Ups',
-    'Swiss Ball Deadbug',
+    'Pullups',
+    'Military Press',
+    'BB High-Pull',
+    'DB Y Raises',
+    'Bicep Curl Of Choice',
+    'Banded Lat Stretch',
   ],
-  // T2 W7-10 — Upper Body Session 2 (in program order)
+  // T2 W7-10 — Upper Body B (in program order)
   'Upper B': [
     'Bench Pull',
-    'Half Kneeling Wall Thoracic Rotation',
-    'BB Shoulder Press',
-    'Half Kneeling Banded Cuban Press',
-    'DB Lateral Raise',
-    'Biceps of Your Choice',
-    'Pallof Press ISO Hold',
+    'Incline DB Bench Press',
+    'Bird-Dog Row',
+    'Weighted Thread-The-Needle',
+    'Supine Lumbar Rotations',
+    'Bicep Curl Of Choice',
   ],
 };
 
@@ -553,6 +547,7 @@ const EXTRAS = {
     'Step Ups',
     'Goblet Squat',
     'KB Swing',
+    'Calf Raise',
   ],
   'Lower B': [
     'Belt Squat',
@@ -563,6 +558,7 @@ const EXTRAS = {
     'Step Ups',
     'Goblet Squat',
     'KB Swing',
+    'Calf Raise',
   ],
   'Upper A': [
     'Face Pulls',
@@ -571,6 +567,7 @@ const EXTRAS = {
     'Tricep Pushdown',
     'Hammer Curl',
     'Band Pull Apart',
+    'Chin Ups',
   ],
   'Upper B': [
     'Face Pulls',
@@ -579,19 +576,20 @@ const EXTRAS = {
     'Tricep Pushdown',
     'Hammer Curl',
     'Band Pull Apart',
+    'Chin Ups',
   ],
 };
 
-const TIME_EXERCISES = ['GHD Hold','Prone Plank','Side Plank','GHD Raise','Hollow Hold','GHD Anti-Lateral Flexion Hold','SB Roll Out + Plank Hold','Pallof Press ISO Hold'];
-const BAND_EXERCISES = ['Chin Ups','Pull Up'];
+const TIME_EXERCISES = ['GHD Hold','Prone Plank','Side Plank','GHD Raise','Hollow Hold','Banded Lat Stretch','Supine Lumbar Rotations','Torsonator Twist'];
+const BAND_EXERCISES = ['Pullups','Chin Ups','Pull Up','Pull Ups'];
 // Map from base exercise name fragment → { dl: display name, sl: display name }
 const SL_MAP = [
-  { match: 'RDL',                        dl: null,                              sl: 'Single Leg RDL' },
+  { match: 'RDL',                        dl: 'RDL',                             sl: 'Single Leg RDL' },
   { match: 'Leg Press',                  dl: 'Leg Press',                       sl: 'Single Leg Press' },
-  { match: 'Eccentric Hamstring Slider', dl: 'Eccentric Hamstring Sliders',     sl: 'Single Leg Eccentric Hamstring Sliders' },
   { match: 'Leg Extension',              dl: 'Leg Extension',                   sl: 'Single Leg Extension' },
   { match: 'Hip Thrust',                 dl: 'Hip Thrust',                      sl: 'Single Leg Hip Thrust' },
-  { match: 'Calf Raise on Step',         dl: 'Calf Raise on Step',              sl: 'Single Leg Calf Raise on Step' },
+  { match: 'Reverse Hyperextension',     dl: 'Reverse Hyperextension',          sl: 'Single Leg Reverse Hyperextension' },
+  { match: 'Calf Raise',                 dl: 'Calf Raise',                      sl: 'Single Leg Calf Raise' },
 ];
 function isSLEx(name) { return SL_MAP.some(t => name.toLowerCase().includes(t.match.toLowerCase())); }
 function getSLEntry(name) { return SL_MAP.find(t => name.toLowerCase().includes(t.match.toLowerCase())); }
